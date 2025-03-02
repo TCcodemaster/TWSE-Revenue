@@ -10,7 +10,8 @@ ENV FLASK_ENV production
 
 # 安裝依賴
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# 確保安裝 gevent
+RUN pip install --no-cache-dir -r requirements.txt gevent
 
 # 複製專案檔案
 COPY . .
