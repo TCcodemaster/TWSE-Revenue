@@ -23,5 +23,4 @@ USER app
 # 暴露連接埠
 EXPOSE 8080
 
-# 運行 Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "app:app"]
+CMD ["gunicorn", "--timeout", "120", "--workers", "2", "--worker-class", "gevent", "--bind", "0.0.0.0:8080", "app:app"]
