@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}TWSE 公司月營收查詢系統{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-12">
+    <div class="card">
+      <div class="card-header bg-primary text-white">
+        <h4 class="mb-0"><i class="fas fa-search"></i> 查詢條件</h4>
+      </div>
+      <div class="card-body">
+        <form id="search-form" class="row g-3">
+          <div class="col-md-4">
+            <label for="company-ids" class="form-label">公司代號（以逗號分隔）</label>
+            <input type="text" class="form-control" id="company-ids" placeholder="例如：2330,2317,2454" required>
+          </div>
+          <!-- 將原來的年份、月份文字框換成下拉選單 -->
+          <div class="col-md-3">
+            <label for="start-year" class="form-label">起始年份</label>
+            <select class="form-select" id="start-year"></select>
+          </div>
+          <div class="col-md-3">
+            <label for="end-year" class="form-label">結束年份</label>
+            <select class="form-select" id="end-year"></select>
+          </div>
+          <div class="col-md-3">
+            <label for="start-month" class="form-label">起始月份</label>
+            <select class="form-select" id="start-month"></select>
+          </div>
+          <div class="col-md-3">
+            <label for="end-month" class="form-label">結束月份</label>
+            <select class="form-select" id="end-month"></select>
+          </div>
+          <div class="col-12">
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-search"></i> 開始查詢
+            </button>
+            <button type="button" id="clear-form" class="btn btn-secondary">
+              <i class="fas fa-eraser"></i> 清除
+            </button>
+          </div>
+        </form>
+      </div>
+      <div class="card-footer">
+        <div class="row">
+          <div class="col-md-6">
+            <h5>最近查詢記錄</h5>
+            <div class="list-group history-list">
+              {% for query in query_history %}
+              <a href="#" class="list-group-item list-group-item-action history-item"
+                data-company-ids="{{ query.company_ids }}" data-year-range="{{ query.year_range }}"
+                data-month-range="{{ query.month_range }}">
+                {{ query.company_ids }} ({{ query.year_range }}, {{ query.month_range }})
+              </a>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 圖表顯示區域，移至資料表上方 -->
+<div class="row mt-4" id="chart-section" style="display: none;">
+  <div class="col-lg-12">
+    <div class="card">
+      <div class="card-header bg-info text-white">
+        <h4 class="mb-0" id="chart-title">圖表</h4>
+        <!-- 新增切換表格顯示按鈕 -->
+        <button type="button" id="toggle-table-btn" class="btn btn-secondary btn-sm float-end">
+          <i class="fas fa-table"></i> 顯示/隱藏資料表格
+        </button>
+      </div>
+      <div class="card-body">
+        <div id="chart-container" style="min-height: 400px;"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 資料顯示區域，預設可以隱藏 -->
+<div class="row mt-4" id="results-section" style="display: none;">
+  <div class="col-lg-12">
+    <div class="card">
+      <div class="card-header bg-success text-white">
+        <h4 class="mb-0"><i class="fas fa-table"></i> 查詢結果</h4>
+      </div>
+      <!-- 圖表按鈕區域（可保留） -->
+      <div class="chart-buttons mt-3">
+        <button type="button" id="revenue-chart-btn" class="btn btn-primary">
+          <i class="fas fa-chart-line"></i> 營收比較圖
+        </button>
+        <button type="button" id="growth-rate-chart-btn" class="btn btn-info">
+          <i class="fas fa-chart-bar"></i> 增減率比較圖
+        </button>
+        <button type="button" id="yearly-comparison-btn" class="btn btn-warning">
+          <i class="fas fa-chart-area"></i> 歷年營收比較
+        </button>
+      </div>
+      <div class="card-body">
+        <div class="alert alert-info loading-message" style="display: none;">
+          <i class="fas fa-spinner fa-spin"></i> 資料讀取中，請稍候...
+        </div>
+        <div class="alert alert-danger error-message" style="display: none;"></div>
+        <!-- 資料表格 -->
+        <div class="table-responsive">
+          <table class="table table-striped table-hover" id="results-table">
+            <thead>
+              <tr>
+                <th>公司代號</th>
+                <th>公司名稱</th>
+                <th>當月營收</th>
+                <th>上月營收</th>
+                <th>去年當月營收</th>
+                <th>上月比較增減(%)</th>
+                <th>去年同月增減(%)</th>
+                <th>月份</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 年度比較選擇公司對話框 -->
+<div class="modal fade" id="company-select-modal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">選擇要比較的公司</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="list-group" id="company-select-list"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
