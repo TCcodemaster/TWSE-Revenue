@@ -1,0 +1,21 @@
+# 快取和數據
+/cache/
+/data/
+*.db
+
+# 環境相關
+.env
+.venv
+env/
+venv/
+
+# Python 編譯文件
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 日誌文件
+*.log
+
+# Docker 相關
+.docker-compose.yml.swp

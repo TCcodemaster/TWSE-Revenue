@@ -1,44 +1,76 @@
 import requests
 from bs4 import BeautifulSoup
-from itertools import product
-from tqdm import tqdm
+from concurrent.futures import ThreadPoolExecutor
 import logging
+import os
+import json
+import time
+from functools import lru_cache
 
 # 配置日誌
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def get_company_basic_data(company_id, url):
-    """
-    從指定 URL 爬取特定公司 ID 的數據
-    
-    Args:
-        company_id (str): 公司代號
-        url (str): 資料來源 URL
-        
-    Returns:
-        dict: 包含公司數據的字典，失敗則返回空字典
-    """
-    data = {}
+# 建立快取目錄
+CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'cache')
+os.makedirs(CACHE_DIR, exist_ok=True)
+
+def get_cache_path(company_id, year, month):
+    """獲取快取文件路徑"""
+    return os.path.join(CACHE_DIR, f"{company_id}_{year}_{month}.json")
+
+def save_to_cache(company_id, year, month, data):
+    """保存數據到快取"""
+    try:
+        cache_path = get_cache_path(company_id, year, month)
+        with open(cache_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False)
+    except Exception as e:
+        logger.error(f"保存快取時出錯: {e}")
+
+def load_from_cache(company_id, year, month):
+    """從快取加載數據"""
+    cache_path = get_cache_path(company_id, year, month)
+    if os.path.exists(cache_path):
+        try:
+            # 檢查快取文件是否過期（7天）
+            if time.time() - os.path.getmtime(cache_path) < 7 * 24 * 60 * 60:
+                with open(cache_path, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+        except Exception as e:
+            logger.error(f"讀取快取時出錯: {e}")
+    return None
+
+@lru_cache(maxsize=128)
+def fetch_url(url, timeout=5):
+    """獲取URL內容，帶有重試機制和記憶體快取"""
+    for attempt in range(3):  # 嘗試3次
+        try:
+            response = requests.get(url, timeout=timeout)
+            response.raise_for_status()
+            return response.text
+        except requests.RequestException as e:
+            logger.warning(f"第{attempt+1}次請求失敗: {url}, 錯誤: {e}")
+            if attempt == 2:  # 最後一次嘗試
+                logger.error(f"請求失敗: {url}, 錯誤: {e}")
+                return None
+            time.sleep(1)  # 等待1秒後重試
+
+def get_company_basic_data(company_id, year, month, html_content):
+    """從HTML內容解析特定公司的數據"""
+    if not html_content:
+        return {}
 
     try:
-        # 發送 HTTP 請求
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()  # 如果請求不成功，會拋出異常
-
-        # 使用 BeautifulSoup 解析 HTML 內容
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        # 找到指定的表格
+        soup = BeautifulSoup(html_content, 'html.parser')
         target_table = soup.find('table')
 
-        # 提取表格中的數據
         if target_table:
-            rows = target_table.find_all('tr')[2:]  # 忽略前兩行，因為它們是表頭
+            rows = target_table.find_all('tr')[2:]  # 忽略前兩行
 
             for row in rows:
                 columns = row.find_all('td')
-                if columns:  # 確保這是一行數據，而不是空行
+                if columns:
                     fetched_company_id = columns[0].text.strip()
                     if fetched_company_id == company_id:
                         company_name = columns[1].text.strip().encode('latin-1').decode('big5', 'ignore')
@@ -55,48 +87,57 @@ def get_company_basic_data(company_id, url):
                             '上月營收': last_month_revenue,
                             '去年當月營收': last_year_month_revenue,
                             '上月比較增減(%)': monthly_growth_rate,
-                            '去年同月增減(%)': last_year_growth_rate
+                            '去年同月增減(%)': last_year_growth_rate,
+                            '月份': f'{year}-{month:02d}'
                         }
                         
-                        return data  # 找到數據後立即返回
-
-    except requests.RequestException as e:
-        logger.error(f"請求錯誤: {e}")
+                        return data
     except Exception as e:
-        logger.error(f"處理數據時發生錯誤: {e}")
+        logger.error(f"解析數據時發生錯誤: {e}")
 
-    return data  # 如果找不到指定公司 ID 的數據，返回空字典
+    return {}
+
+def process_company_data(args):
+    """處理單個公司的數據，用於多線程執行"""
+    company_id, year, month = args
+    base_url = 'https://mopsov.twse.com.tw/nas/t21/sii/t21sc03_{year}_{month}_0.html'
+    url = base_url.format(year=year, month=month)
+    
+    # 嘗試從快取加載
+    cached_data = load_from_cache(company_id, year, month)
+    if cached_data:
+        logger.info(f"從快取獲取 {company_id} {year}年{month}月 的數據")
+        return cached_data
+    
+    # 快取不存在，抓取數據
+    logger.info(f"抓取 {company_id} {year}年{month}月 的數據")
+    html_content = fetch_url(url)
+    data = get_company_basic_data(company_id, year, month, html_content)
+    
+    # 如果成功獲取數據，保存到快取
+    if data:
+        save_to_cache(company_id, year, month, data)
+    
+    return data
 
 def get_company_data(company_ids, year_range, month_range):
-    """
-    爬取指定公司在指定年月範圍內的數據
+    """並行抓取指定公司在指定年月範圍內的數據"""
+    # 生成所有任務參數
+    tasks = [(company_id, year, month) for company_id in company_ids 
+             for year in year_range for month in month_range]
     
-    Args:
-        company_ids (list): 公司代號列表
-        year_range (list): 年份範圍
-        month_range (list): 月份範圍
-        
-    Returns:
-        list: 包含所有公司數據的列表
-    """
-    data = []
-    base_url = 'https://mopsov.twse.com.tw/nas/t21/sii/t21sc03_{year}_{month}_0.html'
-
-    # 估算迴圈的總長度
-    total_iterations = len(company_ids) * len(year_range) * len(month_range)
+    results = []
     
-    logger.info(f"開始爬取數據，共 {total_iterations} 個請求...")
-
-    # 使用 product 函數生成所有可能的組合
-    for company_id, year, month in product(company_ids, year_range, month_range):
-        url = base_url.format(year=year, month=month)
-        logger.info(f"爬取 {company_id} {year}年{month}月 的數據")
+    # 使用線程池並行執行
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        # 提交所有任務
+        future_to_task = {executor.submit(process_company_data, task): task for task in tasks}
         
-        company_data = get_company_basic_data(company_id, url)
-
-        if company_data:
-            company_data['月份'] = f'{year}-{month:02d}'
-            data.append(company_data)
-
-    logger.info(f"爬取完成，共獲取 {len(data)} 筆數據")
-    return data
+        # 收集結果
+        for future in future_to_task:
+            data = future.result()
+            if data:
+                results.append(data)
+    
+    logger.info(f"抓取完成，共獲取 {len(results)} 筆數據")
+    return results

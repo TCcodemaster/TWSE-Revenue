@@ -1,20 +1,33 @@
-version: '3.8'
-
 services:
   web:
     build: .
     ports:
       - "8080:8080"
-    restart: always
-    environment:
-      - SECRET_KEY=your_secret_key_here
-      # 可添加其他環境變數
     volumes:
-      # 持久化數據
-      - ./query_history.json:/app/query_history.json
+      - ./data:/app/data
+      - ./cache:/app/cache
+    environment:
+      - FLASK_ENV=production
+      - WORKERS=2
+      - TIMEOUT=120
+      - MAX_REQUESTS=1000
+      - MAX_REQUESTS_JITTER=50
+    restart: always
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/" ]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 5s
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "5"
+    command: >
+      gunicorn --workers ${WORKERS:-2} --worker-class gevent --worker-connections 1000 --timeout ${TIMEOUT:-120} --max-requests ${MAX_REQUESTS:-1000} --max-requests-jitter ${MAX_REQUESTS_JITTER:-50} --bind 0.0.0.0:8080 --access-logfile - --error-logfile - app:app

@@ -2,9 +2,10 @@ from flask import Flask, render_template, request, jsonify
 from config import Config
 from utils.scraper import get_company_data
 from utils.data_processor import parse_range, prepare_chart_data, prepare_yearly_comparison_data
+from utils.database import Database
 import os
-import json
 import logging
+from flask_caching import Cache
 
 # 配置日誌
 logging.basicConfig(level=logging.INFO)
@@ -14,32 +15,24 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# 記錄用戶查詢歷史的檔案路徑
-QUERY_HISTORY_FILE = os.path.join(app.root_path, 'query_history.json')
+# 配置緩存
+cache_config = {
+    "DEBUG": True,
+    "CACHE_TYPE": "SimpleCache",  # 簡單記憶體緩存
+    "CACHE_DEFAULT_TIMEOUT": 300  # 預設緩存時間（秒）
+}
+app.config.from_mapping(cache_config)
+cache = Cache(app)
 
-# 讀取查詢歷史
-def load_query_history():
-    if os.path.exists(QUERY_HISTORY_FILE):
-        try:
-            with open(QUERY_HISTORY_FILE, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception as e:
-            logger.error(f"讀取查詢歷史時出錯: {e}")
-    return []
-
-# 保存查詢歷史
-def save_query_history(history):
-    try:
-        with open(QUERY_HISTORY_FILE, 'w', encoding='utf-8') as f:
-            json.dump(history, f, ensure_ascii=False)
-    except Exception as e:
-        logger.error(f"保存查詢歷史時出錯: {e}")
+# 初始化數據庫
+db_path = os.path.join(app.root_path, 'data.db')
+db = Database(db_path)
 
 # 首頁路由
 @app.route('/')
 def index():
-    # 讀取查詢歷史
-    query_history = load_query_history()
+    # 從數據庫讀取查詢歷史
+    query_history = db.get_query_history()
     return render_template('index.html', query_history=query_history)
 
 # 處理公司數據請求的 API
@@ -48,12 +41,21 @@ def get_company_data_api():
     try:
         data = request.json
         company_ids = [company_id.strip() for company_id in data.get('company_ids', '').split(',')]
-        year_range_input = [data.get('year_range', '')]
-        month_range_input = [data.get('month_range', '')]
+        year_range_input = data.get('year_range', '')
+        month_range_input = data.get('month_range', '')
 
+        # 建立請求的唯一緩存鍵
+        cache_key = f"company_data_{','.join(company_ids)}_{year_range_input}_{month_range_input}"
+        
+        # 嘗試從緩存獲取數據
+        cached_result = cache.get(cache_key)
+        if cached_result is not None:
+            logger.info(f"從緩存獲取數據: {cache_key}")
+            return jsonify(cached_result)
+        
         # 解析年份和月份範圍
-        year_range = parse_range(year_range_input)
-        month_range = parse_range(month_range_input)
+        year_range = parse_range([year_range_input])
+        month_range = parse_range([month_range_input])
 
         # 驗證輸入
         if not company_ids or not year_range or not month_range:
@@ -64,23 +66,20 @@ def get_company_data_api():
 
         # 如果成功，添加到查詢歷史
         if company_data:
-            query_history = load_query_history()
-            new_query = {
-                'company_ids': data.get('company_ids', ''),
-                'year_range': data.get('year_range', ''),
-                'month_range': data.get('month_range', '')
-            }
-            
-            # 檢查是否已存在相同查詢
-            if new_query not in query_history:
-                query_history.append(new_query)
-                # 只保留最近的 5 筆記錄
-                query_history = query_history[-5:]
-                save_query_history(query_history)
+            db.add_query_history(
+                data.get('company_ids', ''),
+                data.get('year_range', ''),
+                data.get('month_range', '')
+            )
 
         # 排序並返回數據
         sorted_data = sorted(company_data, key=lambda x: (x['公司代號'], x['月份']))
-        return jsonify({'data': sorted_data})
+        result = {'data': sorted_data}
+        
+        # 存入緩存
+        cache.set(cache_key, result)
+        
+        return jsonify(result)
 
     except Exception as e:
         logger.error(f"處理 API 請求時出錯: {e}")
@@ -88,6 +87,7 @@ def get_company_data_api():
 
 # 獲取營收圖表數據
 @app.route('/api/revenue-chart', methods=['POST'])
+@cache.cached(timeout=300, key_prefix=lambda: f"revenue_chart_{hash(request.data)}")
 def get_revenue_chart():
     try:
         data = request.json
@@ -103,6 +103,7 @@ def get_revenue_chart():
 
 # 獲取增長率圖表數據
 @app.route('/api/growth-rate-chart', methods=['POST'])
+@cache.cached(timeout=300, key_prefix=lambda: f"growth_rate_chart_{hash(request.data)}")
 def get_growth_rate_chart():
     try:
         data = request.json
@@ -118,6 +119,7 @@ def get_growth_rate_chart():
 
 # 獲取年度比較圖表數據
 @app.route('/api/yearly-comparison-chart', methods=['POST'])
+@cache.cached(timeout=300, key_prefix=lambda: f"yearly_chart_{hash(request.data)}")
 def get_yearly_comparison_chart():
     try:
         data = request.json
