@@ -80,6 +80,7 @@
   <script src="https://code.highcharts.com/highcharts.js"></script>
   <script src="https://code.highcharts.com/modules/exporting.js"></script>
   <script src="https://code.highcharts.com/modules/export-data.js"></script>
+
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
   <!-- 自定義 CSS -->
@@ -158,6 +159,8 @@
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
   <!-- PWA 註冊 -->
   <script src="{{ url_for('static', filename='js/pwa-register.js') }}"></script>
+  <!-- 保活腳本 -->
+  <script src="{{ url_for('static', filename='js/keep-alive.js') }}"></script>
   {% block extra_scripts %}{% endblock %}
 </body>
 

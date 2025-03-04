@@ -1,15 +1,25 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, redirect, url_for
 from config import Config
 from utils.scraper import get_company_data
 from utils.data_processor import parse_range, prepare_chart_data, prepare_yearly_comparison_data
 from utils.database import Database
 import os
 import logging
+import datetime
+import time
 from flask_caching import Cache
 
 # 配置日誌
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# 系統狀態追踪
+system_status = {
+    'startup_time': None,
+    'is_initializing': True,
+    'startup_count': 0,
+    'last_ping': None
+}
 
 # 初始化 Flask 應用
 app = Flask(__name__)
@@ -28,12 +38,82 @@ cache = Cache(app)
 db_path = os.path.join(app.root_path, 'data.db')
 db = Database(db_path)
 
+# 啟動系統
+def initialize_system():
+    """執行系統初始化流程"""
+    system_status['startup_time'] = datetime.datetime.now()
+    system_status['is_initializing'] = True
+    system_status['startup_count'] += 1
+    
+    logger.info("系統啟動中...")
+    
+    # 模擬初始化流程，可以在這裡添加實際的初始化邏輯
+    time.sleep(0.5)  # 連接資料庫
+    logger.info("資料庫連接成功")
+    
+    time.sleep(0.5)  # 載入配置
+    logger.info("應用程式配置載入完成")
+    
+    time.sleep(0.5)  # 檢查快取
+    logger.info("資料快取檢查完成")
+    
+    # 初始化完成
+    system_status['is_initializing'] = False
+    logger.info(f"系統啟動完成，這是第 {system_status['startup_count']} 次啟動")
+    
+    return True
+
+# 啟動頁面路由
+@app.route('/startup')
+def startup():
+    """系統啟動頁面"""
+    # 如果系統已經初始化完成，直接跳轉到首頁
+    if system_status['startup_time'] is not None and not system_status['is_initializing']:
+        return redirect(url_for('index'))
+    
+    # 否則顯示啟動頁面
+    return render_template('startup.html')
+
 # 首頁路由
 @app.route('/')
 def index():
-    # 從數據庫讀取查詢歷史
+    # 如果系統尚未初始化，跳轉到啟動頁面
+    if system_status['startup_time'] is None:
+        # 啟動初始化流程
+        initialize_system()
+        return redirect(url_for('startup'))
+    
+    # 如果系統正在初始化中，也跳轉到啟動頁面
+    if system_status['is_initializing']:
+        return redirect(url_for('startup'))
+    
+    # 系統已經初始化完成，從數據庫讀取查詢歷史
     query_history = db.get_query_history()
     return render_template('index.html', query_history=query_history)
+
+# 保活 API 端點
+@app.route('/api/keep-alive', methods=['GET'])
+def keep_alive():
+    """系統保活端點，防止雲端服務休眠"""
+    system_status['last_ping'] = datetime.datetime.now()
+    return jsonify({
+        'status': 'active',
+        'timestamp': system_status['last_ping'].strftime('%Y-%m-%d %H:%M:%S'),
+        'startup_time': system_status['startup_time'].strftime('%Y-%m-%d %H:%M:%S') if system_status['startup_time'] else None,
+        'uptime': str(datetime.datetime.now() - system_status['startup_time']) if system_status['startup_time'] else None
+    })
+
+# 系統狀態 API 端點
+@app.route('/api/system-status', methods=['GET'])
+def get_system_status():
+    """獲取系統狀態資訊"""
+    return jsonify({
+        'status': 'initializing' if system_status['is_initializing'] else 'running',
+        'startup_time': system_status['startup_time'].strftime('%Y-%m-%d %H:%M:%S') if system_status['startup_time'] else None,
+        'startup_count': system_status['startup_count'],
+        'last_ping': system_status['last_ping'].strftime('%Y-%m-%d %H:%M:%S') if system_status['last_ping'] else None,
+        'uptime': str(datetime.datetime.now() - system_status['startup_time']) if system_status['startup_time'] else None
+    })
 
 # 處理公司數據請求的 API
 @app.route('/api/company-data', methods=['POST'])
@@ -156,4 +236,6 @@ def internal_server_error(e):
     return render_template('500.html'), 500
 
 if __name__ == '__main__':
+    # 自動執行初始化
+    initialize_system()
     app.run(debug=True)
