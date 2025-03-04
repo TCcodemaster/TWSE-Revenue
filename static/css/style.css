@@ -1,53 +1,32 @@
-#stock-input-container {
-  position: relative;
-  width: 100%;
-  border: 1px solid #ccc;
-  padding: 5px;
-  border-radius: 4px;
-}
-
-#stock-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-bottom: 5px;
-}
-
-.tag {
-  background-color: #007bff;
-  color: white;
-  padding: 3px 8px;
-  border-radius: 3px;
-  font-size: 0.9em;
-}
-
-#stock-input {
-  width: 100%;
-  border: none;
-  outline: none;
-}
-
-#autocomplete-list {
+.autocomplete-list {
   position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  z-index: 1000;
   background: white;
-  border: 1px solid #ccc;
-  border-top: none;
-  max-height: 150px;
+  border: 1px solid #ddd;
+  max-height: 200px;
   overflow-y: auto;
-  list-style: none;
-  padding: 0;
-  margin: 0;
+  width: 100%;
+  z-index: 1000;
 }
 
-#autocomplete-list li {
-  padding: 5px 10px;
+.autocomplete-item {
+  padding: 10px;
   cursor: pointer;
 }
 
-#autocomplete-list li:hover {
-  background-color: #f0f0f0;
+.autocomplete-item:hover {
+  background: #f0f0f0;
+}
+
+.company-tag {
+  display: inline-block;
+  background: #007bff;
+  color: white;
+  padding: 5px 10px;
+  border-radius: 5px;
+  margin: 5px;
+  cursor: pointer;
+}
+
+.company-tag:hover {
+  background: #0056b3;
 }

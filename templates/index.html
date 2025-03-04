@@ -11,10 +11,18 @@
       </div>
       <div class="card-body">
         <form id="search-form" class="row g-3">
-          <div class="col-md-4">
+          <div class="col-md-4 position-relative">
             <label for="company-ids" class="form-label">公司代號（以逗號分隔）</label>
-            <input type="text" class="form-control" id="company-ids" placeholder="例如：2330,2317,2454" required>
+            <input type="text" class="form-control" id="company-ids" placeholder="請輸入公司代號">
+            <!-- 自動補全下拉選單 -->
+            <div id="autocomplete-results" class="autocomplete-list"></div>
+            <!-- 顯示選擇的公司標籤 -->
+            <div id="selected-companies" class="mt-2"></div>
+            <!-- 隱藏的 input，用來儲存逗號分隔的公司代號 -->
+            <input type="hidden" id="company-ids-hidden" name="company_ids">
           </div>
+
+
           <!-- 將原來的年份、月份文字框換成下拉選單 -->
           <div class="col-md-3">
             <label for="start-year" class="form-label">起始年份</label>

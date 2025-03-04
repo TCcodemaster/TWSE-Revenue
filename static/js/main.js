@@ -1,15 +1,92 @@
 // 全局變數，用於存儲當前查詢的數據
 let currentData = [];
 
-// 頁面載入完成後執行
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
+    // === 自動補全與標籤功能開始 ===
+    if (!window.STOCK_LIST || !Array.isArray(window.STOCK_LIST)) {
+        console.error("STOCK_LIST 未正確載入！");
+    } else {
+        const inputField = document.getElementById("company-ids");
+        const autocompleteList = document.getElementById("autocomplete-results");
+        const selectedCompaniesContainer = document.getElementById("selected-companies");
+        const hiddenInput = document.getElementById("company-ids-hidden");
+
+
+        let selectedCompanies = [];
+
+        // 監聽輸入事件，進行模糊搜尋
+        inputField.addEventListener("input", function () {
+            let query = this.value.trim();
+            autocompleteList.innerHTML = "";
+            if (query === "") return;
+
+            let matches = window.STOCK_LIST.filter(
+                (company) =>
+                    company.code.includes(query) || company.name.includes(query)
+            );
+
+            matches.forEach((company) => {
+                let item = document.createElement("div");
+                item.classList.add("autocomplete-item");
+                item.textContent = `${company.code} ${company.name}`;
+                item.dataset.code = company.code;
+
+                item.addEventListener("click", function () {
+                    addCompanyTag(company);
+                    // 清空可見的輸入框
+                    inputField.value = "";
+                    autocompleteList.innerHTML = "";
+                });
+
+                autocompleteList.appendChild(item);
+            });
+        });
+
+        // 加入標籤
+        function addCompanyTag(company) {
+            if (selectedCompanies.includes(company.code)) return;
+            selectedCompanies.push(company.code);
+
+            let tag = document.createElement("span");
+            tag.classList.add("company-tag");
+            tag.textContent = `${company.code} ${company.name}`;
+            tag.dataset.code = company.code;
+
+            // 點擊標籤可移除
+            tag.addEventListener("click", function () {
+                selectedCompanies = selectedCompanies.filter(
+                    (code) => code !== company.code
+                );
+                tag.remove();
+                updateHiddenInput();
+            });
+
+            selectedCompaniesContainer.appendChild(tag);
+            updateHiddenInput();
+        }
+
+        // 更新隱藏欄位的值
+        function updateHiddenInput() {
+            hiddenInput.value = selectedCompanies.join(",");
+            console.log("公司", hiddenInput.value)
+        }
+
+        // 點擊外部時，清除自動補全選單
+        document.addEventListener("click", function (event) {
+            if (!inputField.contains(event.target) && !autocompleteList.contains(event.target)) {
+                autocompleteList.innerHTML = "";
+            }
+        });
+    }
+    // === 自動補全與標籤功能結束 ===
+
     // 移動端導航功能
     setupMobileNavigation();
-    
+
     // 查詢表單提交
     const searchForm = document.getElementById('search-form');
     if (searchForm) {
-        searchForm.addEventListener('submit', function(e) {
+        searchForm.addEventListener('submit', function (e) {
             e.preventDefault();
             fetchCompanyData();
         });
@@ -18,7 +95,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 清除表單按鈕
     const clearFormBtn = document.getElementById('clear-form');
     if (clearFormBtn) {
-        clearFormBtn.addEventListener('click', function() {
+        clearFormBtn.addEventListener('click', function () {
             searchForm.reset();
         });
     }
@@ -26,11 +103,12 @@ document.addEventListener('DOMContentLoaded', function() {
     // 歷史記錄點擊事件，更新下拉選單的值
     const historyItems = document.querySelectorAll('.history-item');
     historyItems.forEach(item => {
-        item.addEventListener('click', function(e) {
+        item.addEventListener('click', function (e) {
             e.preventDefault();
             // 設定公司代號
             document.getElementById('company-ids').value = this.dataset.companyIds;
-            
+            document.getElementById('company-ids-hidden').value = this.dataset.companyIds;
+
             // 解析年份範圍 (例如 "111-112" 或 "112")
             const yearRange = this.dataset.yearRange;
             if (yearRange.includes('-')) {
@@ -41,7 +119,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('start-year').value = yearRange;
                 document.getElementById('end-year').value = yearRange;
             }
-            
+
             // 解析月份範圍 (例如 "1-3" 或 "6")
             const monthRange = this.dataset.monthRange;
             if (monthRange.includes('-')) {
@@ -58,7 +136,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 圖表按鈕點擊事件
     const revenueChartBtn = document.getElementById('revenue-chart-btn');
     if (revenueChartBtn) {
-        revenueChartBtn.addEventListener('click', function() {
+        revenueChartBtn.addEventListener('click', function () {
             if (currentData.length > 0) {
                 fetchRevenueChartData();
             }
@@ -67,7 +145,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const growthRateChartBtn = document.getElementById('growth-rate-chart-btn');
     if (growthRateChartBtn) {
-        growthRateChartBtn.addEventListener('click', function() {
+        growthRateChartBtn.addEventListener('click', function () {
             if (currentData.length > 0) {
                 fetchGrowthRateChartData();
             }
@@ -76,17 +154,17 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const yearlyComparisonBtn = document.getElementById('yearly-comparison-btn');
     if (yearlyComparisonBtn) {
-        yearlyComparisonBtn.addEventListener('click', function() {
+        yearlyComparisonBtn.addEventListener('click', function () {
             if (currentData.length > 0) {
                 showCompanySelectModal();
             }
         });
     }
-    
+
     // 填充下拉選單選項
     const today = new Date();
     const currentMinguo = today.getFullYear() - 1911;
-  
+
     const startYearSelect = document.getElementById('start-year');
     const endYearSelect = document.getElementById('end-year');
     for (let y = currentMinguo; y >= currentMinguo - 30; y--) {
@@ -94,13 +172,13 @@ document.addEventListener('DOMContentLoaded', function() {
         option1.value = y;
         option1.textContent = y;
         startYearSelect.appendChild(option1);
-    
+
         const option2 = document.createElement('option');
         option2.value = y;
         option2.textContent = y;
         endYearSelect.appendChild(option2);
     }
-  
+
     const startMonthSelect = document.getElementById('start-month');
     const endMonthSelect = document.getElementById('end-month');
     for (let m = 1; m <= 12; m++) {
@@ -108,17 +186,17 @@ document.addEventListener('DOMContentLoaded', function() {
         option1.value = m;
         option1.textContent = m;
         startMonthSelect.appendChild(option1);
-    
+
         const option2 = document.createElement('option');
         option2.value = m;
         option2.textContent = m;
         endMonthSelect.appendChild(option2);
     }
-  
+
     // 設定切換表格顯示按鈕
     const toggleTableBtn = document.getElementById('toggle-table-btn');
     if (toggleTableBtn) {
-        toggleTableBtn.addEventListener('click', function() {
+        toggleTableBtn.addEventListener('click', function () {
             const resultsSection = document.getElementById('results-section');
             if (resultsSection.style.display === 'none' || resultsSection.style.display === '') {
                 resultsSection.style.display = 'block';
@@ -131,15 +209,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // 獲取公司數據
 function fetchCompanyData() {
-    const companyIds = document.getElementById('company-ids').value;
+    const companyIds = document.getElementById('company-ids-hidden').value;
     const startYear = document.getElementById('start-year').value;
     const endYear = document.getElementById('end-year').value;
     const startMonth = document.getElementById('start-month').value;
     const endMonth = document.getElementById('end-month').value;
-    
+
     const yearRange = `${startYear}-${endYear}`;
     const monthRange = `${startMonth}-${endMonth}`;
-    
+
     // 顯示結果區域和加載訊息
     document.getElementById('results-section').style.display = 'block';
     document.querySelector('.loading-message').style.display = 'block';
@@ -162,33 +240,33 @@ function fetchCompanyData() {
             month_range: monthRange
         }),
     })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('網路回應不正常');
-        }
-        return response.json();
-    })
-    .then(data => {
-        // 隱藏加載訊息
-        document.querySelector('.loading-message').style.display = 'none';
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('網路回應不正常');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // 隱藏加載訊息
+            document.querySelector('.loading-message').style.display = 'none';
 
-        if (data.error) {
-            throw new Error(data.error);
-        }
+            if (data.error) {
+                throw new Error(data.error);
+            }
 
-        // 儲存當前數據
-        currentData = data.data;
+            // 儲存當前數據
+            currentData = data.data;
 
-        // 填充表格
-        populateTable(currentData);
-    })
-    .catch(error => {
-        // 隱藏加載訊息，顯示錯誤訊息
-        document.querySelector('.loading-message').style.display = 'none';
-        const errorElement = document.querySelector('.error-message');
-        errorElement.textContent = `錯誤: ${error.message}`;
-        errorElement.style.display = 'block';
-    });
+            // 填充表格
+            populateTable(currentData);
+        })
+        .catch(error => {
+            // 隱藏加載訊息，顯示錯誤訊息
+            document.querySelector('.loading-message').style.display = 'none';
+            const errorElement = document.querySelector('.error-message');
+            errorElement.textContent = `錯誤: ${error.message}`;
+            errorElement.style.display = 'block';
+        });
 }
 
 // 填充表格
@@ -207,14 +285,14 @@ function populateTable(data) {
     // 填充表格
     data.forEach(item => {
         const row = document.createElement('tr');
-        
+
         // 創建每個單元格
         ['公司代號', '公司名稱', '當月營收', '上月營收', '去年當月營收', '上月比較增減(%)', '去年同月增減(%)', '月份'].forEach(key => {
             const cell = document.createElement('td');
             cell.textContent = item[key] || '';
             row.appendChild(cell);
         });
-        
+
         tableBody.appendChild(row);
     });
 }
@@ -235,15 +313,15 @@ function fetchRevenueChartData() {
             data: currentData
         }),
     })
-    .then(response => response.json())
-    .then(data => {
-        // 繪製圖表
-        drawRevenueChart(data);
-    })
-    .catch(error => {
-        console.error('獲取圖表數據時出錯:', error);
-        alert('獲取圖表數據時出錯: ' + error.message);
-    });
+        .then(response => response.json())
+        .then(data => {
+            // 繪製圖表
+            drawRevenueChart(data);
+        })
+        .catch(error => {
+            console.error('獲取圖表數據時出錯:', error);
+            alert('獲取圖表數據時出錯: ' + error.message);
+        });
 }
 
 // 繪製營收圖表
@@ -266,15 +344,15 @@ function drawRevenueChart(data) {
                 text: '營收'
             },
             labels: {
-                formatter: function() {
+                formatter: function () {
                     return Highcharts.numberFormat(this.value, 0, '.', ',');
                 }
             }
         },
         tooltip: {
-            formatter: function() {
+            formatter: function () {
                 return '<b>' + this.series.name + '</b><br/>' +
-                       this.x + ': ' + Highcharts.numberFormat(this.y, 0, '.', ',');
+                    this.x + ': ' + Highcharts.numberFormat(this.y, 0, '.', ',');
             }
         },
         plotOptions: {
@@ -304,15 +382,15 @@ function fetchGrowthRateChartData() {
             data: currentData
         }),
     })
-    .then(response => response.json())
-    .then(data => {
-        // 繪製圖表
-        drawGrowthRateChart(data);
-    })
-    .catch(error => {
-        console.error('獲取圖表數據時出錯:', error);
-        alert('獲取圖表數據時出錯: ' + error.message);
-    });
+        .then(response => response.json())
+        .then(data => {
+            // 繪製圖表
+            drawGrowthRateChart(data);
+        })
+        .catch(error => {
+            console.error('獲取圖表數據時出錯:', error);
+            alert('獲取圖表數據時出錯: ' + error.message);
+        });
 }
 
 // 繪製增長率圖表
@@ -339,9 +417,9 @@ function drawGrowthRateChart(data) {
             }
         },
         tooltip: {
-            formatter: function() {
+            formatter: function () {
                 return '<b>' + this.series.name + '</b><br/>' +
-                       this.x + ': ' + this.y + '%';
+                    this.x + ': ' + this.y + '%';
             }
         },
         plotOptions: {
@@ -360,7 +438,7 @@ function showCompanySelectModal() {
     // 獲取不重複的公司列表
     const companies = [];
     const companyIds = new Set();
-    
+
     currentData.forEach(item => {
         if (!companyIds.has(item['公司代號'])) {
             companyIds.add(item['公司代號']);
@@ -370,31 +448,31 @@ function showCompanySelectModal() {
             });
         }
     });
-    
+
     // 填充公司選擇列表
     const companySelectList = document.getElementById('company-select-list');
     companySelectList.innerHTML = '';
-    
+
     companies.forEach(company => {
         const item = document.createElement('a');
         item.href = '#';
         item.className = 'list-group-item list-group-item-action';
         item.textContent = `${company.id} ${company.name}`;
         item.dataset.companyId = company.id;
-        
-        item.addEventListener('click', function(e) {
+
+        item.addEventListener('click', function (e) {
             e.preventDefault();
             const companyId = this.dataset.companyId;
             fetchYearlyComparisonData(companyId);
-            
+
             // 關閉對話框
             const modal = bootstrap.Modal.getInstance(document.getElementById('company-select-modal'));
             modal.hide();
         });
-        
+
         companySelectList.appendChild(item);
     });
-    
+
     // 顯示對話框
     const modal = new bootstrap.Modal(document.getElementById('company-select-modal'));
     modal.show();
@@ -417,15 +495,15 @@ function fetchYearlyComparisonData(companyId) {
             company_id: companyId
         }),
     })
-    .then(response => response.json())
-    .then(data => {
-        // 繪製圖表
-        drawYearlyComparisonChart(data, companyId);
-    })
-    .catch(error => {
-        console.error('獲取圖表數據時出錯:', error);
-        alert('獲取圖表數據時出錯: ' + error.message);
-    });
+        .then(response => response.json())
+        .then(data => {
+            // 繪製圖表
+            drawYearlyComparisonChart(data, companyId);
+        })
+        .catch(error => {
+            console.error('獲取圖表數據時出錯:', error);
+            alert('獲取圖表數據時出錯: ' + error.message);
+        });
 }
 
 // 繪製年度比較圖表
@@ -438,7 +516,7 @@ function drawYearlyComparisonChart(data, companyId) {
             break;
         }
     }
-    
+
     Highcharts.chart('chart-container', {
         chart: {
             type: 'line'
@@ -457,15 +535,15 @@ function drawYearlyComparisonChart(data, companyId) {
                 text: '營收'
             },
             labels: {
-                formatter: function() {
+                formatter: function () {
                     return Highcharts.numberFormat(this.value, 0, '.', ',');
                 }
             }
         },
         tooltip: {
-            formatter: function() {
+            formatter: function () {
                 return '<b>' + this.series.name + '</b><br/>' +
-                       this.x + '月: ' + Highcharts.numberFormat(this.y, 0, '.', ',');
+                    this.x + '月: ' + Highcharts.numberFormat(this.y, 0, '.', ',');
             }
         },
         plotOptions: {
@@ -484,7 +562,7 @@ function setupMobileNavigation() {
     // 搜尋導航項目點擊
     const searchNav = document.getElementById('search-nav');
     if (searchNav) {
-        searchNav.addEventListener('click', function(e) {
+        searchNav.addEventListener('click', function (e) {
             e.preventDefault();
             // 滾動到頁面頂部（搜尋表單區域）
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -494,7 +572,7 @@ function setupMobileNavigation() {
     // 數據導航項目點擊
     const dataNav = document.getElementById('data-nav');
     if (dataNav) {
-        dataNav.addEventListener('click', function(e) {
+        dataNav.addEventListener('click', function (e) {
             e.preventDefault();
             // 如果結果部分已顯示，則滾動到結果表格
             const resultsSection = document.getElementById('results-section');
@@ -513,7 +591,7 @@ function setupMobileNavigation() {
     // 圖表導航項目點擊
     const chartNav = document.getElementById('chart-nav');
     if (chartNav) {
-        chartNav.addEventListener('click', function(e) {
+        chartNav.addEventListener('click', function (e) {
             e.preventDefault();
             // 如果圖表部分已顯示，則滾動到圖表區域
             const chartSection = document.getElementById('chart-section');

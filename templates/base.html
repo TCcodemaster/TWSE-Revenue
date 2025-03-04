@@ -151,13 +151,16 @@
     </div>
   </footer>
 
-  <!-- Bootstrap Bundle with Popper -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-  <!-- jQuery -->
+  <!-- jQuery (Bootstrap 5 本身不需要，但如果其他程式有使用則保留) -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <!-- 自定義 JavaScript -->
+  <!-- 自定義 JavaScript：先載入 stock_list.js -->
+  <script src="{{ url_for('static', filename='js/stock_list.js') }}"></script>
+  <!-- 再載入 main.js -->
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-  <!-- PWA 註冊 -->
+  <!-- PWA 註冊的 script (請確認標籤是否正確) -->
+  <script src="{{ url_for('static', filename='js/pwa.js') }}"></script>
+
   <script src="{{ url_for('static', filename='js/pwa-register.js') }}"></script>
   <!-- 保活腳本 -->
   <script src="{{ url_for('static', filename='js/keep-alive.js') }}"></script>
