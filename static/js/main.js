@@ -616,3 +616,253 @@ function setupMobileNavigation() {
         });
     }
 }
+
+
+
+// 进度轮询
+let progressInterval = null;
+let completedFlag = false;
+
+// 开始轮询进度
+function startProgressPolling() {
+    // 重置完成标志
+    completedFlag = false;
+    
+    // 停止现有轮询
+    if (progressInterval) {
+        clearInterval(progressInterval);
+    }
+    
+    // 确保载入讯息已增强
+    enhanceLoadingMessage();
+    
+    // 显示载入讯息
+    const loadingMessage = document.querySelector('.loading-message');
+    if (loadingMessage) {
+        loadingMessage.style.display = 'block';
+    }
+    
+    // 开始轮询
+    progressInterval = setInterval(function() {
+        fetch('/api/scraper-progress')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // 更新进度
+                const status = updateProgress(data);
+                
+                // 检查是否完成或出错
+                if (status === 'completed' || status === 'error') {
+                    // 设置完成标志
+                    completedFlag = true;
+                    
+                    // 如果完成，延迟停止轮询（等待后端完全处理完数据）
+                    setTimeout(function() {
+                        clearInterval(progressInterval);
+                        progressInterval = null;
+                        
+                        // 如果成功完成，隐藏载入讯息
+                        if (status === 'completed') {
+                            const loadingMessage = document.querySelector('.loading-message');
+                            if (loadingMessage) {
+                                loadingMessage.style.display = 'none';
+                            }
+                        }
+                    }, 3000); // 增加到3秒以确保后端有足够时间
+                }
+                
+                // 检查是否有后端更新
+                const lastUpdateTime = new Date(data.last_update * 1000);
+                const timeSinceUpdate = (new Date() - lastUpdateTime) / 1000;
+                
+                // 如果已经标记为完成但仍在轮询，并且后端有新的更新，重置完成标志
+                if (completedFlag && timeSinceUpdate < 5 && status === 'running') {
+                    completedFlag = false;
+                }
+                
+                // 添加额外的进度详细信息
+                const progressInfo = document.getElementById('progress-info');
+                if (progressInfo) {
+                    let statusText = '';
+                    switch (data.status) {
+                        case 'idle': statusText = '準備中'; break;
+                        case 'running': statusText = '執行中'; break;
+                        case 'completed': statusText = '已完成'; break;
+                        case 'error': statusText = '發生錯誤'; break;
+                        default: statusText = data.status;
+                    }
+                    
+                    const lastUpdateInfo = timeSinceUpdate > 10 ? 
+                        `(${Math.round(timeSinceUpdate)}秒前更新)` : '';
+                    
+                    progressInfo.innerHTML = `
+                        ${statusText} - 完成: ${data.completed}/${data.total} 
+                        <br>公司: ${data.current_company || '無'} ${lastUpdateInfo}
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('轮询进度时出错:', error);
+                
+                // 出错但不要立即停止轮询，后端可能只是临时不可用
+                if (error.toString().includes('Failed to fetch') || error.toString().includes('NetworkError')) {
+                    console.log('网络错误，继续轮询...');
+                } else {
+                    // 其他错误则停止轮询
+                    clearInterval(progressInterval);
+                    progressInterval = null;
+                }
+            });
+    }, 1000);
+}
+
+// 加强载入讯息 - 带更多的进度详细信息
+function enhanceLoadingMessage() {
+    const loadingMessage = document.querySelector('.loading-message');
+    if (!loadingMessage) return;
+    
+    // 如果已经有进度条，不需要重新创建
+    if (loadingMessage.querySelector('.progress-container')) return;
+    
+    // 保留原始内容
+    const originalContent = loadingMessage.innerHTML;
+    
+    // 更清晰的信息结构
+    const messageContainer = document.createElement('div');
+    messageContainer.style.textAlign = 'center';
+    messageContainer.style.marginBottom = '10px';
+    messageContainer.innerHTML = originalContent;
+    
+    // 创建进度条容器
+    const progressContainer = document.createElement('div');
+    progressContainer.className = 'progress-container mt-3';
+    
+    // 创建进度条 - 更明显的设计
+    progressContainer.innerHTML = `
+        <div class="progress" style="height: 20px;">
+            <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+        </div>
+        <div id="progress-info" class="small mt-2" style="font-size: 0.9em;">準備中...</div>
+    `;
+    
+    // 清空原有内容并添加新的结构
+    loadingMessage.innerHTML = '';
+    loadingMessage.appendChild(messageContainer);
+    loadingMessage.appendChild(progressContainer);
+    
+    return loadingMessage;
+}
+
+// 更新进度条 - 带更多的反馈
+function updateProgress(data) {
+    const progressBar = document.getElementById('progress-bar');
+    const progressInfo = document.getElementById('progress-info');
+    
+    if (!progressBar || !progressInfo) return;
+    
+    // 更新进度条
+    const percentage = data.percentage || 0;
+    progressBar.style.width = `${percentage}%`;
+    progressBar.textContent = `${percentage}%`;
+    progressBar.setAttribute('aria-valuenow', percentage);
+    
+    // 根据状态更新颜色
+    if (data.status === 'error') {
+        progressBar.classList.remove('bg-primary', 'bg-success', 'bg-warning');
+        progressBar.classList.add('bg-danger');
+    } else if (data.status === 'completed') {
+        progressBar.classList.remove('bg-primary', 'bg-danger', 'bg-warning');
+        progressBar.classList.add('bg-success');
+    } else if (percentage > 95) {
+        // 接近完成时使用黄色
+        progressBar.classList.remove('bg-primary', 'bg-danger', 'bg-success');
+        progressBar.classList.add('bg-warning');
+    } else {
+        progressBar.classList.remove('bg-success', 'bg-danger', 'bg-warning');
+        progressBar.classList.add('bg-primary');
+    }
+    
+    return data.status;
+}
+
+// 获取公司数据 - 改进版本
+function fetchCompanyData() {
+    const companyIds = document.getElementById('company-ids-hidden').value;
+    const startYear = document.getElementById('start-year').value;
+    const endYear = document.getElementById('end-year').value;
+    const startMonth = document.getElementById('start-month').value;
+    const endMonth = document.getElementById('end-month').value;
+
+    const yearRange = `${startYear}-${endYear}`;
+    const monthRange = `${startMonth}-${endMonth}`;
+
+    // 验证输入
+    if (!companyIds) {
+        alert('請選擇公司');
+        return;
+    }
+
+    // 显示结果区域和加载讯息
+    document.getElementById('results-section').style.display = 'block';
+    document.querySelector('.loading-message').style.display = 'block';
+    document.querySelector('.error-message').style.display = 'none';
+    document.getElementById('chart-section').style.display = 'none';
+
+    // 清空表格
+    const tableBody = document.querySelector('#results-table tbody');
+    tableBody.innerHTML = '';
+    
+    // 开始进度轮询
+    startProgressPolling();
+
+    // 发送 API 请求
+    fetch('/api/company-data', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            company_ids: companyIds,
+            year_range: yearRange,
+            month_range: monthRange
+        }),
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('網路回應不正常');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // 隐藏加载讯息 - 由进度轮询控制
+            // 让进度条保持可见状态，直到完全加载完成
+
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
+            // 存储当前数据
+            currentData = data.data;
+
+            // 填充表格
+            populateTable(currentData);
+        })
+        .catch(error => {
+            // 隐藏加载讯息，显示错误讯息
+            document.querySelector('.loading-message').style.display = 'none';
+            const errorElement = document.querySelector('.error-message');
+            errorElement.textContent = `錯誤: ${error.message}`;
+            errorElement.style.display = 'block';
+            
+            // 停止进度轮询
+            if (progressInterval) {
+                clearInterval(progressInterval);
+                progressInterval = null;
+            }
+        });
+}

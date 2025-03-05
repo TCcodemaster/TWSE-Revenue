@@ -2,6 +2,7 @@ import sqlite3
 import os
 import json
 import logging
+import time
 
 # 配置日誌
 logging.basicConfig(level=logging.INFO)
@@ -11,6 +12,9 @@ class Database:
     def __init__(self, db_path):
         self.db_path = db_path
         self.init_db()
+        # 增加記憶體快取
+        self._query_cache = {}
+        self._cache_timeout = 600  # 10分鐘快取過期
     
     def init_db(self):
         """初始化數據庫表"""
@@ -42,7 +46,14 @@ class Database:
                 )
                 ''')
                 
+                # 為數據快取表添加索引以提高查詢效率
+                cursor.execute('''
+                CREATE INDEX IF NOT EXISTS idx_data_cache_lookup 
+                ON data_cache(company_id, year, month)
+                ''')
+                
                 conn.commit()
+            logger.info("數據庫初始化完成")
         except sqlite3.Error as e:
             logger.error(f"初始化數據庫時出錯: {e}")
     
@@ -87,6 +98,15 @@ class Database:
     
     def get_query_history(self):
         """獲取查詢歷史記錄"""
+        # 生成快取鍵
+        cache_key = 'query_history'
+        
+        # 檢查記憶體快取
+        if cache_key in self._query_cache:
+            cache_time, cache_data = self._query_cache[cache_key]
+            if time.time() - cache_time < self._cache_timeout:
+                return cache_data
+        
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
@@ -107,6 +127,8 @@ class Database:
                         'month_range': row[2]
                     })
                 
+                # 更新記憶體快取
+                self._query_cache[cache_key] = (time.time(), history)
                 return history
         except sqlite3.Error as e:
             logger.error(f"獲取查詢歷史時出錯: {e}")
@@ -122,11 +144,24 @@ class Database:
                 VALUES (?, ?, ?, ?)
                 ''', (company_id, year, month, json.dumps(data, ensure_ascii=False)))
                 conn.commit()
+                
+                # 更新記憶體快取
+                cache_key = f'{company_id}_{year}_{month}'
+                self._query_cache[cache_key] = (time.time(), data)
         except sqlite3.Error as e:
             logger.error(f"緩存數據時出錯: {e}")
     
-    def get_cached_data(self, company_id, year, month, max_age_days=7):
-        """獲取緩存的公司數據"""
+    def get_cached_data(self, company_id, year, month, max_age_days=30):
+        """獲取緩存的公司數據，延長數據有效期至30天"""
+        # 生成快取鍵
+        cache_key = f'{company_id}_{year}_{month}'
+        
+        # 檢查記憶體快取
+        if cache_key in self._query_cache:
+            cache_time, cache_data = self._query_cache[cache_key]
+            if time.time() - cache_time < self._cache_timeout:
+                return cache_data
+        
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
@@ -138,8 +173,16 @@ class Database:
                 
                 result = cursor.fetchone()
                 if result:
-                    return json.loads(result[0])
+                    data = json.loads(result[0])
+                    # 更新記憶體快取
+                    self._query_cache[cache_key] = (time.time(), data)
+                    return data
                 return None
         except sqlite3.Error as e:
             logger.error(f"獲取緩存數據時出錯: {e}")
             return None
+            
+    def clear_memory_cache(self):
+        """清除記憶體快取"""
+        self._query_cache.clear()
+        logger.info("記憶體快取已清除")

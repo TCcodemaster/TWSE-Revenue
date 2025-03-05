@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from config import Config
-from utils.scraper import get_company_data
+from utils.scraper import get_company_data,get_status
 from utils.data_processor import parse_range, prepare_chart_data, prepare_yearly_comparison_data
 from utils.database import Database
 import os
@@ -8,6 +8,8 @@ import logging
 import datetime
 import time
 from flask_caching import Cache
+import traceback
+import threading
 
 # 配置日誌
 logging.basicConfig(level=logging.INFO)
@@ -18,7 +20,8 @@ system_status = {
     'startup_time': None,
     'is_initializing': True,
     'startup_count': 0,
-    'last_ping': None
+    'last_ping': None,
+    'error_count': 0
 }
 
 # 初始化 Flask 應用
@@ -29,7 +32,7 @@ app.config.from_object(Config)
 cache_config = {
     "DEBUG": True,
     "CACHE_TYPE": "SimpleCache",  # 簡單記憶體緩存
-    "CACHE_DEFAULT_TIMEOUT": 300  # 預設緩存時間（秒）
+    "CACHE_DEFAULT_TIMEOUT": 3600  # 提高預設緩存時間至1小時
 }
 app.config.from_mapping(cache_config)
 cache = Cache(app)
@@ -112,39 +115,68 @@ def get_system_status():
         'startup_time': system_status['startup_time'].strftime('%Y-%m-%d %H:%M:%S') if system_status['startup_time'] else None,
         'startup_count': system_status['startup_count'],
         'last_ping': system_status['last_ping'].strftime('%Y-%m-%d %H:%M:%S') if system_status['last_ping'] else None,
-        'uptime': str(datetime.datetime.now() - system_status['startup_time']) if system_status['startup_time'] else None
+        'uptime': str(datetime.datetime.now() - system_status['startup_time']) if system_status['startup_time'] else None,
+        'error_count': system_status['error_count']
     })
 
 # 處理公司數據請求的 API
-@app.route('/api/company-data', methods=['POST'])
-def get_company_data_api():
+# 修改 app.py 中的 get_company_data_api 函数
+
+
     try:
-        data = request.json
+        # 检查请求格式，根据日志，前端是以JSON格式发送请求
+        if request.is_json:
+            # 获取 JSON 数据
+            data = request.json
+            if data is None:
+                # 如果JSON解析失败，尝试获取表单数据
+                data = {
+                    'company_ids': request.form.get('company_ids', ''),
+                    'year_range': request.form.get('year_range', ''),
+                    'month_range': request.form.get('month_range', '')
+                }
+        else:
+            # 如果不是JSON格式，尝试从表单数据获取参数
+            data = {
+                'company_ids': request.form.get('company_ids', ''),
+                'year_range': request.form.get('year_range', ''),
+                'month_range': request.form.get('month_range', '')
+            }
+        
+        # 记录接收到的数据，帮助调试
+        logger.info(f"接收到的请求数据类型: {request.content_type}")
+        logger.info(f"接收到的请求数据: {data}")
+        
+        # 验证必要参数
+        if not data or not data.get('company_ids'):
+            return jsonify({'error': '请提供公司代号'}), 400
+        
+        # 分割公司代号
         company_ids = [company_id.strip() for company_id in data.get('company_ids', '').split(',')]
         year_range_input = data.get('year_range', '')
         month_range_input = data.get('month_range', '')
 
-        # 建立請求的唯一緩存鍵
+        # 建立请求的唯一缓存键
         cache_key = f"company_data_{','.join(company_ids)}_{year_range_input}_{month_range_input}"
         
-        # 嘗試從緩存獲取數據
+        # 尝试从缓存获取数据
         cached_result = cache.get(cache_key)
         if cached_result is not None:
-            logger.info(f"從緩存獲取數據: {cache_key}")
+            logger.info(f"从缓存获取数据: {cache_key}")
             return jsonify(cached_result)
         
-        # 解析年份和月份範圍
+        # 解析年份和月份范围
         year_range = parse_range([year_range_input])
         month_range = parse_range([month_range_input])
 
-        # 驗證輸入
+        # 验证解析后的数据
         if not company_ids or not year_range or not month_range:
-            return jsonify({'error': '缺少必要參數'}), 400
+            return jsonify({'error': '缺少必要参数或参数格式不正确'}), 400
 
-        # 獲取公司數據
-        company_data = get_company_data(company_ids, year_range, month_range)
+        # 获取公司数据
+        company_data = get_company_data_with_progress(company_ids, year_range, month_range)
 
-        # 如果成功，添加到查詢歷史
+        # 如果成功，添加到查询历史
         if company_data:
             db.add_query_history(
                 data.get('company_ids', ''),
@@ -152,22 +184,23 @@ def get_company_data_api():
                 data.get('month_range', '')
             )
 
-        # 排序並返回數據
+        # 排序并返回数据
         sorted_data = sorted(company_data, key=lambda x: (x['公司代號'], x['月份']))
         result = {'data': sorted_data}
         
-        # 存入緩存
-        cache.set(cache_key, result)
+        # 存入缓存
+        cache.set(cache_key, result, timeout=3600)
         
         return jsonify(result)
 
     except Exception as e:
-        logger.error(f"處理 API 請求時出錯: {e}")
+        system_status['error_count'] += 1
+        error_detail = traceback.format_exc()
+        logger.error(f"处理 API 请求时出错: {e}\n{error_detail}")
         return jsonify({'error': str(e)}), 500
-
 # 獲取營收圖表數據
 @app.route('/api/revenue-chart', methods=['POST'])
-@cache.cached(timeout=300, key_prefix=lambda: f"revenue_chart_{hash(request.data)}")
+@cache.cached(timeout=3600, key_prefix=lambda: f"revenue_chart_{hash(request.data)}")
 def get_revenue_chart():
     try:
         data = request.json
@@ -178,12 +211,13 @@ def get_revenue_chart():
         return jsonify(chart_data)
     
     except Exception as e:
+        system_status['error_count'] += 1
         logger.error(f"處理營收圖表請求時出錯: {e}")
         return jsonify({'error': str(e)}), 500
 
 # 獲取增長率圖表數據
 @app.route('/api/growth-rate-chart', methods=['POST'])
-@cache.cached(timeout=300, key_prefix=lambda: f"growth_rate_chart_{hash(request.data)}")
+@cache.cached(timeout=3600, key_prefix=lambda: f"growth_rate_chart_{hash(request.data)}")
 def get_growth_rate_chart():
     try:
         data = request.json
@@ -194,12 +228,13 @@ def get_growth_rate_chart():
         return jsonify(chart_data)
     
     except Exception as e:
+        system_status['error_count'] += 1
         logger.error(f"處理增長率圖表請求時出錯: {e}")
         return jsonify({'error': str(e)}), 500
 
 # 獲取年度比較圖表數據
 @app.route('/api/yearly-comparison-chart', methods=['POST'])
-@cache.cached(timeout=300, key_prefix=lambda: f"yearly_chart_{hash(request.data)}")
+@cache.cached(timeout=3600, key_prefix=lambda: f"yearly_chart_{hash(request.data)}")
 def get_yearly_comparison_chart():
     try:
         data = request.json
@@ -218,10 +253,221 @@ def get_yearly_comparison_chart():
         return jsonify(chart_data)
     
     except Exception as e:
+        system_status['error_count'] += 1
         logger.error(f"處理年度比較圖表請求時出錯: {e}")
         return jsonify({'error': str(e)}), 500
 
-# 離線頁面
+# 清除緩存
+@app.route('/api/clear-cache', methods=['POST'])
+def clear_cache():
+    try:
+        cache.clear()
+        db.clear_memory_cache()
+        return jsonify({'status': 'success', 'message': '緩存已清除'})
+    except Exception as e:
+        logger.error(f"清除緩存時出錯: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+# 進度查詢 API 端點
+
+
+# 用于存储爬虫进度的全局变量
+scraper_progress = {
+    'percentage': 0,
+    'completed': 0,
+    'total': 0,
+    'current_company': '',
+    'status': 'idle',  # idle, running, completed, error
+    'last_update': time.time()
+}
+
+@app.route('/api/scraper-progress', methods=['GET'])
+def get_scraper_progress():
+    """获取爬虫进度信息"""
+    try:
+        global scraper_progress
+        
+        # 检查进度是否已经很久没有更新（可能意味着后端在处理复杂请求）
+        current_time = time.time()
+        time_since_update = current_time - scraper_progress.get('last_update', current_time)
+        
+        # 如果状态是running但超过10秒没有更新，仍然返回运行中状态
+        if scraper_progress['status'] == 'running' and time_since_update > 10:
+            logger.info(f"进度长时间未更新: {time_since_update:.1f}秒")
+        
+        # 深拷贝进度数据，避免并发问题
+        progress_data = dict(scraper_progress)
+        
+        # 添加额外信息帮助调试
+        progress_data['time_since_update'] = f"{time_since_update:.1f}秒"
+        
+        return jsonify(progress_data)
+    except Exception as e:
+        logger.error(f"获取爬虫进度时出错: {e}")
+        return jsonify({
+            'error': str(e),
+            'percentage': 0,
+            'completed': 0,
+            'total': 0,
+            'current_company': '',
+            'status': 'error',
+            'last_update': time.time()
+        }), 500
+
+# 修改API调用函数，确保正确跟踪进度
+@app.route('/api/company-data', methods=['POST'])
+def get_company_data_api():
+    try:
+        global scraper_progress
+        
+        # 重置进度
+        scraper_progress = {
+            'percentage': 0,
+            'completed': 0,
+            'total': 0,
+            'current_company': '',
+            'status': 'idle',
+            'last_update': time.time()
+        }
+        
+        # 检查请求格式
+        if request.is_json:
+            data = request.json
+            if data is None:
+                data = {
+                    'company_ids': request.form.get('company_ids', ''),
+                    'year_range': request.form.get('year_range', ''),
+                    'month_range': request.form.get('month_range', '')
+                }
+        else:
+            data = {
+                'company_ids': request.form.get('company_ids', ''),
+                'year_range': request.form.get('year_range', ''),
+                'month_range': request.form.get('month_range', '')
+            }
+        
+        # 记录接收到的数据
+        logger.info(f"接收到的请求数据类型: {request.content_type}")
+        logger.info(f"接收到的请求数据: {data}")
+        
+        # 验证必要参数
+        if not data or not data.get('company_ids'):
+            return jsonify({'error': '请提供公司代号'}), 400
+        
+        # 分割公司代号
+        company_ids = [company_id.strip() for company_id in data.get('company_ids', '').split(',')]
+        year_range_input = data.get('year_range', '')
+        month_range_input = data.get('month_range', '')
+
+        # 建立请求的唯一缓存键
+        cache_key = f"company_data_{','.join(company_ids)}_{year_range_input}_{month_range_input}"
+        
+        # 尝试从缓存获取数据
+        cached_result = cache.get(cache_key)
+        if cached_result is not None:
+            logger.info(f"从缓存获取数据: {cache_key}")
+            
+            # 即使是缓存数据，也模拟一个进度过程
+            scraper_progress.update({
+                'percentage': 100,
+                'completed': 1,
+                'total': 1,
+                'current_company': '从缓存加载',
+                'status': 'completed',
+                'last_update': time.time()
+            })
+            
+            return jsonify(cached_result)
+        
+        # 解析年份和月份范围
+        year_range = parse_range([year_range_input])
+        month_range = parse_range([month_range_input])
+
+        # 验证解析后的数据
+        if not company_ids or not year_range or not month_range:
+            return jsonify({'error': '缺少必要参数或参数格式不正确'}), 400
+
+        # 更新进度状态为开始运行
+        total_tasks = len(company_ids) * len(year_range) * len(month_range)
+        scraper_progress.update({
+            'percentage': 0,
+            'completed': 0,
+            'total': total_tasks,
+            'current_company': company_ids[0],
+            'status': 'running',
+            'last_update': time.time()
+        })
+        
+        # 获取公司数据
+        company_data = get_company_data(company_ids, year_range, month_range)
+        
+        # 完成后更新进度状态
+        scraper_progress.update({
+            'percentage': 100,
+            'completed': total_tasks,
+            'total': total_tasks,
+            'status': 'completed',
+            'last_update': time.time()
+        })
+
+        # 如果成功，添加到查询历史
+        if company_data:
+            db.add_query_history(
+                data.get('company_ids', ''),
+                data.get('year_range', ''),
+                data.get('month_range', '')
+            )
+
+        # 排序并返回数据
+        sorted_data = sorted(company_data, key=lambda x: (x['公司代號'], x['月份']))
+        result = {'data': sorted_data}
+        
+        # 存入缓存
+        cache.set(cache_key, result, timeout=3600)
+        
+        return jsonify(result)
+
+    except Exception as e:
+        # 发生错误时更新进度状态
+        scraper_progress.update({
+            'status': 'error',
+            'last_update': time.time()
+        })
+        
+        system_status['error_count'] += 1
+        error_detail = traceback.format_exc()
+        logger.error(f"处理 API 请求时出错: {e}\n{error_detail}")
+        return jsonify({'error': str(e)}), 500
+# 修改 get_company_data 函数的调用方式，添加进度更新
+# 这是一个简单的包装函数
+def get_company_data_with_progress(company_ids, year_range, month_range):
+    """带进度追踪的公司数据获取函数"""
+    global scraper_progress
+    
+    # 重置进度
+    scraper_progress = {
+        'percentage': 0,
+        'completed': 0,
+        'total': len(company_ids) * len(year_range) * len(month_range),
+        'current_company': '',
+        'status': 'running'
+    }
+    
+    try:
+        # 调用原始函数获取数据
+        data = get_company_data(company_ids, year_range, month_range)
+        
+        # 设置完成状态
+        scraper_progress['percentage'] = 100
+        scraper_progress['completed'] = scraper_progress['total']
+        scraper_progress['status'] = 'completed'
+        
+        return data
+    except Exception as e:
+        # 设置错误状态
+        scraper_progress['status'] = 'error'
+        raise e
 @app.route('/offline.html')
 def offline():
     return render_template('offline.html')
@@ -233,6 +479,7 @@ def page_not_found(e):
 
 @app.errorhandler(500)
 def internal_server_error(e):
+    system_status['error_count'] += 1
     return render_template('500.html'), 500
 
 if __name__ == '__main__':
