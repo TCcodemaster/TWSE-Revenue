@@ -43,42 +43,58 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         // 加入標籤
-        function addCompanyTag(company) {
-            if (selectedCompanies.includes(company.code)) return;
-            selectedCompanies.push(company.code);
+// 加入標籤
+  // 加入標籤
+  function addCompanyTag(company) {
+    if (selectedCompanies.includes(company.code)) return;
+    selectedCompanies.push(company.code);
+    
+    // 創建標籤元素
+    let tag = document.createElement("span");
+    tag.classList.add("company-tag");
+    
+    // 創建標籤文字元素
+    let tagText = document.createElement("span");
+    tagText.textContent = `${company.code} ${company.name}`;
+    
+    // 創建移除按鈕 (iPhone 風格的小叉)
+    let removeButton = document.createElement("span");
+    removeButton.classList.add("remove-btn");
+    removeButton.innerHTML = "×";
+    
+    // 點擊移除按鈕可移除標籤
+    removeButton.addEventListener("click", function(event) {
+        event.stopPropagation(); // 阻止事件冒泡到標籤元素
+        selectedCompanies = selectedCompanies.filter(
+            (code) => code !== company.code
+        );
+        tag.remove();
+        updateHiddenInput();
+    });
+    
+    // 將文字和移除按鈕加入標籤元素
+    tag.appendChild(tagText);
+    tag.appendChild(removeButton);
+    tag.dataset.code = company.code;
+    
+    selectedCompaniesContainer.appendChild(tag);
+    updateHiddenInput();
+}
 
-            let tag = document.createElement("span");
-            tag.classList.add("company-tag");
-            tag.textContent = `${company.code} ${company.name}`;
-            tag.dataset.code = company.code;
+// 更新隱藏欄位的值
+function updateHiddenInput() {
+    hiddenInput.value = selectedCompanies.join(",");
+    console.log("公司", hiddenInput.value);
+}
 
-            // 點擊標籤可移除
-            tag.addEventListener("click", function () {
-                selectedCompanies = selectedCompanies.filter(
-                    (code) => code !== company.code
-                );
-                tag.remove();
-                updateHiddenInput();
-            });
-
-            selectedCompaniesContainer.appendChild(tag);
-            updateHiddenInput();
-        }
-
-        // 更新隱藏欄位的值
-        function updateHiddenInput() {
-            hiddenInput.value = selectedCompanies.join(",");
-            console.log("公司", hiddenInput.value)
-        }
-
-        // 點擊外部時，清除自動補全選單
-        document.addEventListener("click", function (event) {
-            if (!inputField.contains(event.target) && !autocompleteList.contains(event.target)) {
-                autocompleteList.innerHTML = "";
-            }
-        });
+// 點擊外部時，清除自動補全選單
+document.addEventListener("click", function(event) {
+    if (!inputField.contains(event.target) && !autocompleteList.contains(event.target)) {
+        autocompleteList.innerHTML = "";
     }
-    // === 自動補全與標籤功能結束 ===
+});
+
+    }
 
     // 移動端導航功能
     setupMobileNavigation();

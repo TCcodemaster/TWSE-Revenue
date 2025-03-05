@@ -1,11 +1,27 @@
+/* 包裝輸入框和自動完成列表的容器 */
+.company-search-container {
+  position: relative;
+  width: 100%;
+}
+
+/* 輸入框樣式 */
+#company-ids {
+  width: 100%;
+}
+
+/* 自動完成下拉選單樣式 */
 .autocomplete-list {
   position: absolute;
+  top: 100%; /* 定位在輸入框下方 */
+  left: 0;
   background: white;
   border: 1px solid #ddd;
+  border-top: none; /* 移除上邊框，與輸入框連接 */
   max-height: 200px;
   overflow-y: auto;
-  width: 100%;
+  width: 100%; /* 確保與輸入框同寬 */
   z-index: 1000;
+  box-sizing: border-box; /* 確保邊框包含在寬度內 */
 }
 
 .autocomplete-item {
@@ -16,17 +32,39 @@
 .autocomplete-item:hover {
   background: #f0f0f0;
 }
-
+/* 公司標籤樣式 */
 .company-tag {
-  display: inline-block;
-  background: #007bff;
+  display: inline-flex;
+  align-items: center;
+  background-color: #0047b3; /* 主藍色，完全不透明 */
   color: white;
-  padding: 5px 10px;
-  border-radius: 5px;
-  margin: 5px;
-  cursor: pointer;
+  border-radius: 16px;
+  padding: 6px 10px;
+  margin: 4px;
+  font-size: 14px;
+  cursor: default;
 }
 
 .company-tag:hover {
-  background: #0056b3;
+  background: #4a7dcf; /* 懸停時的深藍色，完全不透明 */
+}
+
+/* 移除按鈕樣式 (iPhone風格小叉) */
+.remove-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: rgb(238, 98, 98); /* 完全不透明的紅色 */
+  color: white;
+  font-size: 12px;
+  margin-left: 6px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.remove-btn:hover {
+  background-color: rgb(255, 128, 128); /* 懸停時的亮紅色 */
 }
