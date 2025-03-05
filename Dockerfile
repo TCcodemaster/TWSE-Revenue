@@ -46,4 +46,4 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
   CMD curl -f http://localhost:8080/ || exit 1
 
 # 啟動命令
-CMD ["gunicorn", "--timeout", "120", "--workers", "2", "--worker-class", "gevent", "--worker-connections", "1000", "--bind", "0.0.0.0:8080", "app:app"]
+CMD ["gunicorn", "--timeout", "120", "--workers", "2", "--worker-class", "gevent", "--worker-connections", "1000", "--bind", "0.0.0.0:8081", "app:app"]
