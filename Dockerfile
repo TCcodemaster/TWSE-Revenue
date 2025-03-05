@@ -39,11 +39,11 @@ RUN addgroup --system app && \
 USER app
 
 # 暴露連接埠
-EXPOSE 8081
+EXPOSE 8082
 
 # 健康檢查
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:8081/ || exit 1
+  CMD curl -f http://localhost:8082/ || exit 1
 
 # 啟動命令
-CMD ["gunicorn", "--timeout", "120", "--workers", "2", "--worker-class", "gevent", "--worker-connections", "1000", "--bind", "0.0.0.0:8081", "app:app"]
+CMD ["gunicorn", "--timeout", "120", "--workers", "2", "--worker-class", "gevent", "--worker-connections", "1000", "--bind", "0.0.0.0:8082", "app:app"]
