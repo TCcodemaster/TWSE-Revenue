@@ -2,7 +2,7 @@ services:
   web:
     build: .
     ports:
-      - "8080:8080"
+      - "8081:8081"
     volumes:
       - ./data:/app/data
       - ./cache:/app/cache
@@ -14,7 +14,7 @@ services:
       - MAX_REQUESTS_JITTER=50
     restart: always
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:8081/" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -30,4 +30,4 @@ services:
         max-size: "20m"
         max-file: "5"
     command: >
-      gunicorn --workers ${WORKERS:-2} --worker-class gevent --worker-connections 1000 --timeout ${TIMEOUT:-120} --max-requests ${MAX_REQUESTS:-1000} --max-requests-jitter ${MAX_REQUESTS_JITTER:-50} --bind 0.0.0.0:8080 --access-logfile - --error-logfile - app:app
+      gunicorn --workers ${WORKERS:-2} --worker-class gevent --worker-connections 1000 --timeout ${TIMEOUT:-120} --max-requests ${MAX_REQUESTS:-1000} --max-requests-jitter ${MAX_REQUESTS_JITTER:-50} --bind 0.0.0.0:8081 --access-logfile - --error-logfile - app:app
