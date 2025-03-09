@@ -22,8 +22,8 @@ CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 os.makedirs(CACHE_DIR, exist_ok=True)
 
 # 添加请求限制和退避策略
-REQUEST_DELAY = 1.5  # 基本延遲時間 (秒)
-MAX_WORKERS = 3  # 降低並行請求數
+REQUEST_DELAY = 0.001  # 基本延遲時間 (秒)
+MAX_WORKERS = 8  # 降低並行請求數
 
 # 簡化版的進度追踪器
 scraper_status = {
@@ -169,6 +169,7 @@ def process_company_data(args):
     """处理单个公司的数据，用于多线程执行"""
     company_id, year, month = args
     base_url = 'https://mopsov.twse.com.tw/nas/t21/sii/t21sc03_{year}_{month}_0.html'
+
     url = base_url.format(year=year, month=month)
 
     # 尝试更新进度 - 更精确的方式

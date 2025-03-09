@@ -37,10 +37,15 @@ cache_config = {
 app.config.from_mapping(cache_config)
 cache = Cache(app)
 
-# 初始化數據庫
-db_path = os.path.join(app.root_path, 'data.db')
-db = Database(db_path)
 
+
+# 確保 `data` 資料夾存在
+data_dir = os.path.join(app.root_path, 'data')
+os.makedirs(data_dir, exist_ok=True)
+
+# 設定數據庫路徑
+db_path = os.path.join(data_dir, 'data.db')
+db = Database(db_path)
 # 啟動系統
 def initialize_system():
     """執行系統初始化流程"""
@@ -119,86 +124,6 @@ def get_system_status():
         'error_count': system_status['error_count']
     })
 
-# 處理公司數據請求的 API
-# 修改 app.py 中的 get_company_data_api 函数
-
-
-    try:
-        # 检查请求格式，根据日志，前端是以JSON格式发送请求
-        if request.is_json:
-            # 获取 JSON 数据
-            data = request.json
-            if data is None:
-                # 如果JSON解析失败，尝试获取表单数据
-                data = {
-                    'company_ids': request.form.get('company_ids', ''),
-                    'year_range': request.form.get('year_range', ''),
-                    'month_range': request.form.get('month_range', '')
-                }
-        else:
-            # 如果不是JSON格式，尝试从表单数据获取参数
-            data = {
-                'company_ids': request.form.get('company_ids', ''),
-                'year_range': request.form.get('year_range', ''),
-                'month_range': request.form.get('month_range', '')
-            }
-        
-        # 记录接收到的数据，帮助调试
-        logger.info(f"接收到的请求数据类型: {request.content_type}")
-        logger.info(f"接收到的请求数据: {data}")
-        
-        # 验证必要参数
-        if not data or not data.get('company_ids'):
-            return jsonify({'error': '请提供公司代号'}), 400
-        
-        # 分割公司代号
-        company_ids = [company_id.strip() for company_id in data.get('company_ids', '').split(',')]
-        year_range_input = data.get('year_range', '')
-        month_range_input = data.get('month_range', '')
-
-        # 建立请求的唯一缓存键
-        cache_key = f"company_data_{','.join(company_ids)}_{year_range_input}_{month_range_input}"
-        
-        # 尝试从缓存获取数据
-        cached_result = cache.get(cache_key)
-        if cached_result is not None:
-            logger.info(f"从缓存获取数据: {cache_key}")
-            return jsonify(cached_result)
-        
-        # 解析年份和月份范围
-        year_range = parse_range([year_range_input])
-        month_range = parse_range([month_range_input])
-
-        # 验证解析后的数据
-        if not company_ids or not year_range or not month_range:
-            return jsonify({'error': '缺少必要参数或参数格式不正确'}), 400
-
-        # 获取公司数据
-        company_data = get_company_data_with_progress(company_ids, year_range, month_range)
-
-        # 如果成功，添加到查询历史
-        if company_data:
-            db.add_query_history(
-                data.get('company_ids', ''),
-                data.get('year_range', ''),
-                data.get('month_range', '')
-            )
-
-        # 排序并返回数据
-        sorted_data = sorted(company_data, key=lambda x: (x['公司代號'], x['月份']))
-        result = {'data': sorted_data}
-        
-        # 存入缓存
-        cache.set(cache_key, result, timeout=3600)
-        
-        return jsonify(result)
-
-    except Exception as e:
-        system_status['error_count'] += 1
-        error_detail = traceback.format_exc()
-        logger.error(f"处理 API 请求时出错: {e}\n{error_detail}")
-        return jsonify({'error': str(e)}), 500
-# 獲取營收圖表數據
 @app.route('/api/revenue-chart', methods=['POST'])
 @cache.cached(timeout=3600, key_prefix=lambda: f"revenue_chart_{hash(request.data)}")
 def get_revenue_chart():
@@ -368,12 +293,12 @@ def get_company_data_api():
         if cached_result is not None:
             logger.info(f"从缓存获取数据: {cache_key}")
             
-            # 即使是缓存数据，也模拟一个进度过程
+            # 即使是缓存数据，也模擬過程
             scraper_progress.update({
                 'percentage': 100,
                 'completed': 1,
                 'total': 1,
-                'current_company': '从缓存加载',
+                'current_company': '從缓存加载',
                 'status': 'completed',
                 'last_update': time.time()
             })
