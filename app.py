@@ -198,22 +198,38 @@ def clear_cache():
 
 
 
+# 修改 /api/scraper-progress 路由
 @app.route('/api/scraper-progress', methods=['GET'])
 def get_scraper_progress():
-    """获取爬虫进度信息"""
+    """獲取爬蟲進度信息"""
     try:
-        # 直接從新模組獲取狀態
-        from utils.scraper import get_scraper_status
-        progress_data = get_scraper_status()
+        # 使用新的進度追蹤模組獲取狀態
+        from utils.progress_tracker import get_status
+        progress_data = get_status()
         
         # 添加额外信息帮助调试
         current_time = time.time()
         time_since_update = current_time - progress_data.get('last_update', current_time)
         progress_data['time_since_update'] = f"{time_since_update:.1f}秒"
         
+        # 確保進度數據包含所有預期的欄位
+        if 'percentage' not in progress_data:
+            progress_data['percentage'] = 0
+        if 'completed' not in progress_data:
+            progress_data['completed'] = 0
+        if 'total' not in progress_data:
+            progress_data['total'] = 0
+        if 'current_company' not in progress_data:
+            progress_data['current_company'] = ''
+        if 'status' not in progress_data:
+            progress_data['status'] = 'idle'
+        
+        # 輸出進度信息到日誌以便調試
+        logger.debug(f"進度數據: {progress_data}")
+        
         return jsonify(progress_data)
     except Exception as e:
-        logger.error(f"获取爬虫进度时出错: {e}")
+        logger.error(f"獲取爬蟲進度時出錯: {e}")
         return jsonify({
             'error': str(e),
             'percentage': 0,
@@ -221,7 +237,8 @@ def get_scraper_progress():
             'total': 0,
             'current_company': '',
             'status': 'error',
-            'last_update': time.time()
+            'last_update': time.time(),
+            'time_since_update': '0.0秒'
         }), 500
 # 修改API调用函数，确保正确跟踪进度
 @app.route('/api/company-data', methods=['POST'])

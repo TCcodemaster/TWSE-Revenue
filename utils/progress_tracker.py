@@ -67,8 +67,17 @@ def error(error_message):
 def get_status():
     """獲取當前進度狀態"""
     with progress['lock']:
+        # 計算百分比
+        total = progress['total'] or 1  # 避免除以零錯誤
+        percentage = min(99, round((progress['completed'] / total) * 100, 1))
+        
+        # 如果已完成，設置為 100%
+        if progress['status'] == 'completed':
+            percentage = 100
+        
+        # 返回所有前端需要的欄位
         return {
-            'percentage': progress['percentage'],
+            'percentage': percentage,
             'completed': progress['completed'],
             'total': progress['total'],
             'current_company': progress['current_company'],

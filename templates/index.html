@@ -61,7 +61,8 @@
           <div class="col-md-6">
             <h5>最近查詢記錄</h5>
             <div class="list-group history-list">
-              {% for query in query_history %}
+              <!-- 顯示前五個記錄 -->
+              {% for query in query_history[:5] %}
               <a href="#" class="list-group-item list-group-item-action history-item"
                 data-company-ids="{{ query.company_ids }}" data-year-range="{{ query.year_range }}"
                 data-month-range="{{ query.month_range }}">
@@ -69,6 +70,29 @@
               </a>
               {% endfor %}
             </div>
+
+            <!-- 如果記錄超過5個，則增加摺疊區塊 -->
+            {% if query_history|length > 5 %}
+            <div class="mt-2">
+              <a class="btn btn-sm btn-outline-secondary" data-bs-toggle="collapse" href="#collapseHistory"
+                role="button" aria-expanded="false" aria-controls="collapseHistory">
+                <span class="collapse-text">更多記錄 ({{ query_history|length - 5 }})</span>
+                <i class="fas fa-chevron-down collapse-icon"></i>
+              </a>
+
+              <div class="collapse mt-2" id="collapseHistory">
+                <div class="list-group history-list-more">
+                  {% for query in query_history[5:] %}
+                  <a href="#" class="list-group-item list-group-item-action history-item"
+                    data-company-ids="{{ query.company_ids }}" data-year-range="{{ query.year_range }}"
+                    data-month-range="{{ query.month_range }}">
+                    {{ query.company_ids }} ({{ query.year_range }}, {{ query.month_range }})
+                  </a>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+            {% endif %}
           </div>
         </div>
       </div>

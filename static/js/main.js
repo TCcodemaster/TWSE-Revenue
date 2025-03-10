@@ -209,6 +209,10 @@ document.addEventListener("click", function(event) {
         endMonthSelect.appendChild(option2);
     }
 
+    // 設定月份預設值：起始為1，結束為12
+    startMonthSelect.value = 1;
+    endMonthSelect.value = 12;
+
     // 設定切換表格顯示按鈕
     const toggleTableBtn = document.getElementById('toggle-table-btn');
     if (toggleTableBtn) {
@@ -635,28 +639,102 @@ function setupMobileNavigation() {
 
 
 
+// 将此代码添加到 main.js 文件的底部，或替换现有的进度轮询代码
+
 // 进度轮询
 let progressInterval = null;
 let completedFlag = false;
 
+// 修正 fetchCompanyData 函数，确保在发送请求前启动进度轮询
+function fetchCompanyData() {
+    const companyIds = document.getElementById('company-ids-hidden').value;
+    const startYear = document.getElementById('start-year').value;
+    const endYear = document.getElementById('end-year').value;
+    const startMonth = document.getElementById('start-month').value;
+    const endMonth = document.getElementById('end-month').value;
+
+    const yearRange = startYear === endYear ? startYear : `${startYear}-${endYear}`;
+    const monthRange = startMonth === endMonth ? startMonth : `${startMonth}-${endMonth}`;
+
+    // 验证输入
+    if (!companyIds) {
+        alert('請選擇公司');
+        return;
+    }
+
+    // 显示结果区域和加载讯息
+    document.getElementById('results-section').style.display = 'block';
+    
+    // 確保加載訊息增強
+    enhanceLoadingMessage();
+    document.querySelector('.loading-message').style.display = 'block';
+    
+    document.querySelector('.error-message').style.display = 'none';
+    document.getElementById('chart-section').style.display = 'none';
+
+    // 清空表格
+    const tableBody = document.querySelector('#results-table tbody');
+    tableBody.innerHTML = '';
+    
+    // 开始进度轮询
+    startProgressPolling();
+
+    // 发送 API 请求
+    fetch('/api/company-data', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            company_ids: companyIds,
+            year_range: yearRange,
+            month_range: monthRange
+        }),
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`網路回應不正常: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        // 停止轮询
+        stopProgressPolling();
+
+        if (data.error) {
+            throw new Error(data.error);
+        }
+
+        // 存储当前数据
+        currentData = data.data;
+
+        // 填充表格
+        populateTable(currentData);
+        
+        // 隐藏加载讯息
+        document.querySelector('.loading-message').style.display = 'none';
+    })
+    .catch(error => {
+        // 停止轮询
+        stopProgressPolling();
+        
+        // 隐藏加载讯息，显示错误讯息
+        document.querySelector('.loading-message').style.display = 'none';
+        const errorElement = document.querySelector('.error-message');
+        errorElement.textContent = `錯誤: ${error.message}`;
+        errorElement.style.display = 'block';
+    });
+}
+
 // 开始轮询进度
 function startProgressPolling() {
+    console.log("開始進度輪詢");
+    
     // 重置完成标志
     completedFlag = false;
     
     // 停止现有轮询
-    if (progressInterval) {
-        clearInterval(progressInterval);
-    }
-    
-    // 确保载入讯息已增强
-    enhanceLoadingMessage();
-    
-    // 显示载入讯息
-    const loadingMessage = document.querySelector('.loading-message');
-    if (loadingMessage) {
-        loadingMessage.style.display = 'block';
-    }
+    stopProgressPolling();
     
     // 开始轮询
     progressInterval = setInterval(function() {
@@ -668,75 +746,44 @@ function startProgressPolling() {
                 return response.json();
             })
             .then(data => {
+                console.log("進度數據:", data);
+                
                 // 更新进度
                 const status = updateProgress(data);
                 
                 // 检查是否完成或出错
                 if (status === 'completed' || status === 'error') {
-                    // 设置完成标志
-                    completedFlag = true;
-                    
-                    // 如果完成，延迟停止轮询（等待后端完全处理完数据）
-                    setTimeout(function() {
-                        clearInterval(progressInterval);
-                        progressInterval = null;
-                        
-                        // 如果成功完成，隐藏载入讯息
-                        if (status === 'completed') {
-                            const loadingMessage = document.querySelector('.loading-message');
-                            if (loadingMessage) {
-                                loadingMessage.style.display = 'none';
-                            }
+                    if (status === 'error') {
+                        // 显示错误信息
+                        const errorElement = document.querySelector('.error-message');
+                        if (errorElement && data.error) {
+                            errorElement.textContent = `錯誤: ${data.error}`;
+                            errorElement.style.display = 'block';
                         }
-                    }, 3000); // 增加到3秒以确保后端有足够时间
-                }
-                
-                // 检查是否有后端更新
-                const lastUpdateTime = new Date(data.last_update * 1000);
-                const timeSinceUpdate = (new Date() - lastUpdateTime) / 1000;
-                
-                // 如果已经标记为完成但仍在轮询，并且后端有新的更新，重置完成标志
-                if (completedFlag && timeSinceUpdate < 5 && status === 'running') {
-                    completedFlag = false;
-                }
-                
-                // 添加额外的进度详细信息
-                const progressInfo = document.getElementById('progress-info');
-                if (progressInfo) {
-                    let statusText = '';
-                    switch (data.status) {
-                        case 'idle': statusText = '準備中'; break;
-                        case 'running': statusText = '執行中'; break;
-                        case 'completed': statusText = '已完成'; break;
-                        case 'error': statusText = '發生錯誤'; break;
-                        default: statusText = data.status;
                     }
                     
-                    const lastUpdateInfo = timeSinceUpdate > 10 ? 
-                        `(${Math.round(timeSinceUpdate)}秒前更新)` : '';
-                    
-                    progressInfo.innerHTML = `
-                        ${statusText} - 完成: ${data.completed}/${data.total} 
-                        <br>公司: ${data.current_company || '無'} ${lastUpdateInfo}
-                    `;
+                    // 延迟停止轮询
+                    setTimeout(function() {
+                        stopProgressPolling();
+                    }, 1000);
                 }
             })
             .catch(error => {
                 console.error('轮询进度时出错:', error);
-                
-                // 出错但不要立即停止轮询，后端可能只是临时不可用
-                if (error.toString().includes('Failed to fetch') || error.toString().includes('NetworkError')) {
-                    console.log('网络错误，继续轮询...');
-                } else {
-                    // 其他错误则停止轮询
-                    clearInterval(progressInterval);
-                    progressInterval = null;
-                }
             });
     }, 1000);
 }
 
-// 加强载入讯息 - 带更多的进度详细信息
+// 停止轮询进度
+function stopProgressPolling() {
+    if (progressInterval) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+        console.log("停止進度輪詢");
+    }
+}
+
+// 加强载入讯息
 function enhanceLoadingMessage() {
     const loadingMessage = document.querySelector('.loading-message');
     if (!loadingMessage) return;
@@ -774,12 +821,12 @@ function enhanceLoadingMessage() {
     return loadingMessage;
 }
 
-// 更新进度条 - 带更多的反馈
+// 更新进度条
 function updateProgress(data) {
     const progressBar = document.getElementById('progress-bar');
     const progressInfo = document.getElementById('progress-info');
     
-    if (!progressBar || !progressInfo) return;
+    if (!progressBar || !progressInfo) return data.status;
     
     // 更新进度条
     const percentage = data.percentage || 0;
@@ -803,82 +850,159 @@ function updateProgress(data) {
         progressBar.classList.add('bg-primary');
     }
     
+    // 更新进度信息
+    let statusText = '';
+    switch (data.status) {
+        case 'idle': statusText = '準備中'; break;
+        case 'running': statusText = '執行中'; break;
+        case 'completed': statusText = '已完成'; break;
+        case 'error': statusText = '發生錯誤'; break;
+        default: statusText = data.status;
+    }
+    
+    const timeSinceUpdate = data.time_since_update ? data.time_since_update : '';
+    
+    progressInfo.innerHTML = `
+        ${statusText} - 完成: ${data.completed}/${data.total} 
+        <br>公司: ${data.current_company || '無'} ${timeSinceUpdate}
+    `;
+    
     return data.status;
 }
 
-// 获取公司数据 - 改进版本
-function fetchCompanyData() {
-    const companyIds = document.getElementById('company-ids-hidden').value;
-    const startYear = document.getElementById('start-year').value;
-    const endYear = document.getElementById('end-year').value;
-    const startMonth = document.getElementById('start-month').value;
-    const endMonth = document.getElementById('end-month').value;
-
-    const yearRange = `${startYear}-${endYear}`;
-    const monthRange = `${startMonth}-${endMonth}`;
-
-    // 验证输入
-    if (!companyIds) {
-        alert('請選擇公司');
-        return;
-    }
-
-    // 显示结果区域和加载讯息
-    document.getElementById('results-section').style.display = 'block';
-    document.querySelector('.loading-message').style.display = 'block';
-    document.querySelector('.error-message').style.display = 'none';
-    document.getElementById('chart-section').style.display = 'none';
-
-    // 清空表格
-    const tableBody = document.querySelector('#results-table tbody');
-    tableBody.innerHTML = '';
-    
-    // 开始进度轮询
-    startProgressPolling();
-
-    // 发送 API 请求
-    fetch('/api/company-data', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            company_ids: companyIds,
-            year_range: yearRange,
-            month_range: monthRange
-        }),
-    })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('網路回應不正常');
-            }
-            return response.json();
-        })
-        .then(data => {
-            // 隐藏加载讯息 - 由进度轮询控制
-            // 让进度条保持可见状态，直到完全加载完成
-
-            if (data.error) {
-                throw new Error(data.error);
-            }
-
-            // 存储当前数据
-            currentData = data.data;
-
-            // 填充表格
-            populateTable(currentData);
-        })
-        .catch(error => {
-            // 隐藏加载讯息，显示错误讯息
-            document.querySelector('.loading-message').style.display = 'none';
-            const errorElement = document.querySelector('.error-message');
-            errorElement.textContent = `錯誤: ${error.message}`;
-            errorElement.style.display = 'block';
-            
-            // 停止进度轮询
-            if (progressInterval) {
-                clearInterval(progressInterval);
-                progressInterval = null;
-            }
+// 确保在页面加载完成后绑定事件
+document.addEventListener('DOMContentLoaded', function() {
+    // 这里可能需要重新绑定表单提交事件，以使用修改后的 fetchCompanyData 函数
+    const searchForm = document.getElementById('search-form');
+    if (searchForm) {
+        // 移除现有的事件监听器 (如果可能的话)
+        searchForm.removeEventListener('submit', fetchCompanyData);
+        
+        // 添加新的事件监听器
+        searchForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            fetchCompanyData();
         });
-}
+    }
+});
+
+// 添加到 main.js 檔案中
+document.addEventListener('DOMContentLoaded', function() {
+    // 處理歷史記錄折疊
+    const collapseElement = document.getElementById('collapseHistory');
+    if (collapseElement) {
+      // 監聽折疊狀態變化
+      collapseElement.addEventListener('shown.bs.collapse', function() {
+        const toggleButton = document.querySelector('[data-bs-toggle="collapse"]');
+        if (toggleButton) {
+          toggleButton.querySelector('.collapse-text').textContent = '收起記錄';
+          toggleButton.querySelector('.collapse-icon').classList.remove('fa-chevron-down');
+          toggleButton.querySelector('.collapse-icon').classList.add('fa-chevron-up');
+        }
+      });
+  
+      collapseElement.addEventListener('hidden.bs.collapse', function() {
+        const toggleButton = document.querySelector('[data-bs-toggle="collapse"]');
+        if (toggleButton) {
+          const hiddenCount = document.querySelectorAll('.history-list-more .history-item').length;
+          toggleButton.querySelector('.collapse-text').textContent = `更多記錄 (${hiddenCount})`;
+          toggleButton.querySelector('.collapse-icon').classList.remove('fa-chevron-up');
+          toggleButton.querySelector('.collapse-icon').classList.add('fa-chevron-down');
+        }
+      });
+    }
+  
+    // 確保所有歷史項目的事件處理（包括折疊區域內的）
+    const allHistoryItems = document.querySelectorAll('.history-item');
+    allHistoryItems.forEach(item => {
+      item.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        // 設定公司代號
+        const companyIds = this.dataset.companyIds;
+        document.getElementById('company-ids').value = companyIds;
+        document.getElementById('company-ids-hidden').value = companyIds;
+  
+        // 處理公司標籤（如果您使用標籤顯示選擇的公司）
+        updateCompanyTags(companyIds);
+  
+        // 解析年份範圍 (例如 "111-112" 或 "112")
+        const yearRange = this.dataset.yearRange;
+        if (yearRange.includes('-')) {
+          const years = yearRange.split('-');
+          document.getElementById('start-year').value = years[0];
+          document.getElementById('end-year').value = years[1];
+        } else {
+          document.getElementById('start-year').value = yearRange;
+          document.getElementById('end-year').value = yearRange;
+        }
+  
+        // 解析月份範圍 (例如 "1-3" 或 "6")
+        const monthRange = this.dataset.monthRange;
+        if (monthRange.includes('-')) {
+          const months = monthRange.split('-');
+          document.getElementById('start-month').value = months[0];
+          document.getElementById('end-month').value = months[1];
+        } else {
+          document.getElementById('start-month').value = monthRange;
+          document.getElementById('end-month').value = monthRange;
+        }
+      });
+    });
+  });
+  
+  // 更新公司標籤的輔助函數（如果您使用標籤顯示選擇的公司）
+  function updateCompanyTags(companyIdsStr) {
+    // 如果不需要處理標籤，可以移除此函數
+    if (!window.STOCK_LIST || !Array.isArray(window.STOCK_LIST)) {
+      return;
+    }
+  
+    // 清空現有標籤
+    const selectedCompaniesContainer = document.getElementById('selected-companies');
+    if (selectedCompaniesContainer) {
+      selectedCompaniesContainer.innerHTML = '';
+    }
+  
+    // 解析公司代號
+    const companyIds = companyIdsStr.split(',');
+    
+    // 重新建立標籤
+    const selectedCompanies = [];
+    
+    companyIds.forEach(companyId => {
+      const trimmedId = companyId.trim();
+      if (trimmedId) {
+        selectedCompanies.push(trimmedId);
+        
+        // 找到對應的公司資訊
+        const companyInfo = window.STOCK_LIST.find(company => company.code === trimmedId);
+        
+        if (companyInfo && selectedCompaniesContainer) {
+          // 創建新標籤
+          const tag = document.createElement('span');
+          tag.classList.add('company-tag');
+          
+          const tagText = document.createElement('span');
+          tagText.textContent = `${companyInfo.code} ${companyInfo.name}`;
+          
+          const removeButton = document.createElement('span');
+          removeButton.classList.add('remove-btn');
+          removeButton.innerHTML = '×';
+          
+          removeButton.addEventListener('click', function(event) {
+            event.stopPropagation();
+            selectedCompanies.splice(selectedCompanies.indexOf(trimmedId), 1);
+            tag.remove();
+            document.getElementById('company-ids-hidden').value = selectedCompanies.join(',');
+          });
+          
+          tag.appendChild(tagText);
+          tag.appendChild(removeButton);
+          tag.dataset.code = trimmedId;
+          
+          selectedCompaniesContainer.appendChild(tag);
+        }
+      }
+    });
+  }

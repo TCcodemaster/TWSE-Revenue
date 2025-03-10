@@ -68,3 +68,42 @@
 .remove-btn:hover {
   background-color: rgb(255, 128, 128); /* 懸停時的亮紅色 */
 }
+/* 添加到您的 CSS 檔案 */
+
+/* 歷史記錄摺疊按鈕樣式 */
+.btn[data-bs-toggle="collapse"] {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: all 0.3s ease;
+}
+
+.btn[data-bs-toggle="collapse"]:hover {
+  background-color: #aad3fc;
+}
+
+.collapse-icon {
+  transition: transform 0.3s ease;
+}
+
+/* 歷史記錄清單樣式 */
+.history-list-more {
+  box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.05);
+  border-top: 1px solid #f0f0f0;
+}
+
+/* 為歷史項目添加視覺效果 */
+.history-item {
+  transition: background-color 0.2s ease;
+  border-left: 3px solid transparent;
+}
+
+.history-item:hover {
+  border-left-color: #007bff;
+  background-color: #f8f9fa;
+}
+
+/* 確保摺疊動畫平滑 */
+.collapse {
+  transition: height 0.3s ease;
+}

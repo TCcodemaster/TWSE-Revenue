@@ -117,7 +117,6 @@ class Database:
                 SELECT company_ids, year_range, month_range 
                 FROM query_history 
                 ORDER BY created_at DESC
-                LIMIT 5
                 ''')
                 
                 results = cursor.fetchall()
