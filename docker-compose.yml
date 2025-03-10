@@ -1,20 +1,23 @@
+version: '3'
+
 services:
   web:
     build: .
     ports:
       - "8082:8082"
     volumes:
-      - ./data:/app/data
-      - ./cache:/app/cache
+      - db_data:/app/data # 使用命名卷而非相對路徑
+      - cache_data:/app/cache # 同樣使用命名卷
     environment:
       - FLASK_ENV=production
       - WORKERS=2
       - TIMEOUT=120
       - MAX_REQUESTS=1000
       - MAX_REQUESTS_JITTER=50
+      - DATABASE_DIR=/app/data # 添加數據庫目錄環境變數
     restart: always
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8082/" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:8082/health" ] # 建議使用專門的健康檢查端點
       interval: 30s
       timeout: 10s
       retries: 3
@@ -31,3 +34,11 @@ services:
         max-file: "5"
     command: >
       gunicorn --workers ${WORKERS:-2} --worker-class gevent --worker-connections 1000 --timeout ${TIMEOUT:-120} --max-requests ${MAX_REQUESTS:-1000} --max-requests-jitter ${MAX_REQUESTS_JITTER:-50} --bind 0.0.0.0:8082 --access-logfile - --error-logfile - app:app
+
+volumes:
+  db_data:
+    # 定義命名卷
+    driver: local
+  cache_data:
+    # 定義快取命名卷
+    driver: local

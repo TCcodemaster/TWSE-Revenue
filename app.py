@@ -37,14 +37,15 @@ cache_config = {
 app.config.from_mapping(cache_config)
 cache = Cache(app)
 
-
+# TODO Render 部署時，每次啟動都是新的容器，如果沒有設置持久化磁碟 (Persistent Disk)，data.db 會在重啟後消失。
+# TODO Render 的文件系統是唯讀的 (Read-Only)，除非手動設置掛載目錄。
 
 # 確保 `data` 資料夾存在
-data_dir = os.path.join(app.root_path, 'data')
-os.makedirs(data_dir, exist_ok=True)
+# 從環境變數讀取數據庫位置，提供合理預設值
+db_base_path = os.environ.get('DATABASE_DIR', os.path.join(app.root_path, 'data'))
+os.makedirs(db_base_path, exist_ok=True)
 
-# 設定數據庫路徑
-db_path = os.path.join(data_dir, 'data.db')
+db_path = os.path.join(db_base_path, 'data.db')
 db = Database(db_path)
 # 啟動系統
 def initialize_system():
