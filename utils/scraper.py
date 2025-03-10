@@ -1,4 +1,4 @@
-# 在 utils/scraper.py 文件中添加這些代碼
+# 在 utils/scraper.py 文件中修改進度追蹤相關代碼
 
 import requests
 from bs4 import BeautifulSoup
@@ -10,9 +10,9 @@ import time
 from functools import lru_cache
 import random
 import threading
+# 導入新的進度追蹤器
+from utils.progress_tracker import initialize, update_company, increment, complete, error, get_status
 
-# 在文件顶部添加：
-import time
 # 配置日誌
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -25,54 +25,54 @@ os.makedirs(CACHE_DIR, exist_ok=True)
 REQUEST_DELAY = 0.001  # 基本延遲時間 (秒)
 MAX_WORKERS = 8  # 降低並行請求數
 
-# 簡化版的進度追踪器
-scraper_status = {
-    'total': 0,
-    'completed': 0,
-    'current_company': '',
-    'status': 'idle',
-    'lock': threading.Lock()
-}
+# 添加自適應並行機制
+class AdaptiveThrottler:
+    def __init__(self, initial_workers=3, min_workers=1, max_workers=8):
+        self.current_workers = initial_workers
+        self.min_workers = min_workers
+        self.max_workers = max_workers
+        self.success_count = 0
+        self.failure_count = 0
+        self.lock = threading.Lock()
+    
+    def report_success(self):
+        with self.lock:
+            self.success_count += 1
+            # 連續成功10次，增加worker數
+            if self.success_count >= 10 and self.current_workers < self.max_workers:
+                self.current_workers = min(self.current_workers + 1, self.max_workers)
+                self.success_count = 0
+                logger.info(f"增加並行數到 {self.current_workers}")
+    
+    def report_failure(self):
+        with self.lock:
+            self.failure_count += 1
+            self.success_count = 0
+            # 失敗一次就減少worker數
+            if self.failure_count >= 1 and self.current_workers > self.min_workers:
+                self.current_workers = max(self.current_workers - 1, self.min_workers)
+                self.failure_count = 0
+                logger.info(f"降低並行數到 {self.current_workers}")
+    
+    def get_current_workers(self):
+        with self.lock:
+            return self.current_workers
 
-def reset_status():
-    """重置狀態追踪器"""
-    with scraper_status['lock']:
-        scraper_status['total'] = 0
-        scraper_status['completed'] = 0
-        scraper_status['current_company'] = ''
-        scraper_status['status'] = 'idle'
-
-def update_status(company_id=None, completed=False):
-    """更新爬蟲狀態"""
-    with scraper_status['lock']:
-        if company_id:
-            scraper_status['current_company'] = company_id
-        
-        if completed:
-            scraper_status['completed'] += 1
-            
-            # 檢查是否完成
-            if scraper_status['completed'] >= scraper_status['total']:
-                scraper_status['status'] = 'completed'
-
-def get_status():
-    """獲取當前狀態"""
-    with scraper_status['lock']:
-        percentage = 0
-        if scraper_status['total'] > 0:
-            percentage = min(100, round((scraper_status['completed'] / scraper_status['total']) * 100, 1))
-            
-        return {
-            'percentage': percentage,
-            'completed': scraper_status['completed'],
-            'total': scraper_status['total'],
-            'current_company': scraper_status['current_company'],
-            'status': scraper_status['status']
-        }
+# 初始化throttler
+throttler = AdaptiveThrottler(initial_workers=3)
 
 def get_cache_path(company_id, year, month):
-    """獲取快取文件路徑"""
-    return os.path.join(CACHE_DIR, f"{company_id}_{year}_{month}.json")
+    """獲取快取文件路徑，使用子目錄組織緩存"""
+    # 創建按年份和公司分類的子目錄，減少單目錄下的文件數量
+    company_dir = os.path.join(CACHE_DIR, company_id)
+    year_dir = os.path.join(company_dir, str(year))
+    os.makedirs(year_dir, exist_ok=True)
+    return os.path.join(year_dir, f"{month:02d}.json")
+
+def validate_cache_data(data):
+    """驗證快取數據的有效性"""
+    required_fields = ['公司代號', '公司名稱', '當月營收', '上月營收', '去年當月營收']
+    return all(field in data for field in required_fields) and data.get('當月營收') != ''
 
 def save_to_cache(company_id, year, month, data):
     """保存數據到快取"""
@@ -97,24 +97,41 @@ def load_from_cache(company_id, year, month):
     return None
 
 # 使用退避策略的請求函數
-def fetch_url(url, timeout=10):
+def fetch_url(url, timeout=30):  # 增加默認超時時間
     """獲取URL內容，帶有重試機制、退避策略和更寬鬆的超時設置"""
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
         'Accept-Language': 'zh-TW,zh;q=0.9,en-US;q=0.8,en;q=0.7',
-        'Connection': 'keep-alive'
+        'Referer': 'https://mops.twse.com.tw/mops/web/index',
+        'Connection': 'keep-alive',
+        'Cache-Control': 'max-age=0'
     }
     
-    for attempt in range(5):  # 增加重試次數
+    session = requests.Session()  # 使用會話保持連接
+    
+    for attempt in range(5):  # 5次重試機會
         try:
-            # 添加随机延迟，避免请求过于规律
-            jitter = random.uniform(0.5, 1.5)
-            delay = REQUEST_DELAY * (2 ** attempt) * jitter  # 指數退避 + 抖動
-            time.sleep(delay)
+            # 使用更智能的延遲策略
+            base_delay = 1.0  # 增加基本延遲到1秒
+            if attempt > 0:
+                # 指數退避 + 隨機抖動
+                jitter = random.uniform(0.5, 1.5)
+                delay = base_delay * (2 ** attempt) * jitter
+                time.sleep(delay)
             
-            response = requests.get(url, timeout=timeout, headers=headers)
+            response = session.get(url, timeout=timeout, headers=headers)
             response.raise_for_status()
+            
+            # 檢查內容是否有效 (避免獲取到錯誤頁面)
+            if '資料庫查詢' in response.text or '抱歉，您要求的網頁出現錯誤' in response.text:
+                if attempt == 4:
+                    logger.error(f"網站返回錯誤頁面: {url}")
+                    return None
+                continue  # 重試
+                
             return response.text
+            
         except requests.RequestException as e:
             logger.warning(f"第{attempt+1}次請求失敗: {url}, 錯誤: {e}")
             if attempt == 4:  # 最後一次嘗試
@@ -162,93 +179,52 @@ def get_company_basic_data(company_id, year, month, html_content):
 
     return {}
 
-
-
-
 def process_company_data(args):
-    """处理单个公司的数据，用于多线程执行"""
+    """处理单个公司的数据，使用改进的缓存和请求机制"""
     company_id, year, month = args
     base_url = 'https://mopsov.twse.com.tw/nas/t21/sii/t21sc03_{year}_{month}_0.html'
 
     url = base_url.format(year=year, month=month)
-
-    # 尝试更新进度 - 更精确的方式
-    try:
-        import app
-        if hasattr(app, 'scraper_progress'):
-            app.scraper_progress['current_company'] = f"{company_id} {year}年{month}月"
-            app.scraper_progress['last_update'] = time.time()
-    except (ImportError, AttributeError):
-        pass
     
-    # 尝试从缓存加载
+    # 更新进度
+    update_company(company_id, year, month)
+    
+    # 优先从缓存加载
     cached_data = load_from_cache(company_id, year, month)
-    if cached_data:
+    if cached_data and validate_cache_data(cached_data):
         logger.info(f"从缓存获取 {company_id} {year}年{month}月 的数据")
-        
-        # 更新进度计数
-        try:
-            import app
-            if hasattr(app, 'scraper_progress'):
-                app.scraper_progress['completed'] += 1
-                total = app.scraper_progress['total'] or 1  # 避免除零错误
-                app.scraper_progress['percentage'] = min(99, round((app.scraper_progress['completed'] / total) * 100, 1))
-                app.scraper_progress['last_update'] = time.time()
-        except (ImportError, AttributeError, ZeroDivisionError):
-            pass
-            
+        increment()
+        throttler.report_success()  # 報告成功
         return cached_data
     
-    # 缓存不存在，抓取数据
+    # 缓存不存在或无效，抓取数据
     logger.info(f"抓取 {company_id} {year}年{month}月 的数据")
     
-    # 添加延迟以确保网站不会被过度请求
-    try:
-        import app
-        if hasattr(app, 'scraper_progress'):
-            # 检查进度是否需要更新
-            app.scraper_progress['last_update'] = time.time()
-    except (ImportError, AttributeError):
-        pass
-    
     html_content = fetch_url(url)
+    
+    if not html_content:
+        throttler.report_failure()  # 報告失敗
+        increment()
+        logger.warning(f"获取 {company_id} {year}年{month}月 的数据失败")
+        return None
+    
     data = get_company_basic_data(company_id, year, month, html_content)
     
-    # 更新进度计数 - 确保不会到达100%直到完全完成
-    try:
-        import app
-        if hasattr(app, 'scraper_progress'):
-            app.scraper_progress['completed'] += 1
-            total = app.scraper_progress['total'] or 1  # 避免除零错误
-            # 使用99%作为最大进度，直到真正完成
-            app.scraper_progress['percentage'] = min(99, round((app.scraper_progress['completed'] / total) * 100, 1))
-            app.scraper_progress['last_update'] = time.time()
-    except (ImportError, AttributeError, ZeroDivisionError):
-        pass
-    
-    # 如果成功获取数据，保存到缓存
-    if data:
+    if data and len(data) > 0:
         save_to_cache(company_id, year, month, data)
+        throttler.report_success()  # 報告成功
+    else:
+        throttler.report_failure()  # 報告失敗
     
+    increment()
     return data
 
 # 修改 get_company_data 函数
 def get_company_data(company_ids, year_range, month_range):
     """并行抓取指定公司在指定年月范围内的数据"""
-    # 尝试初始化进度
-    try:
-        import app
-        if hasattr(app, 'scraper_progress'):
-            total_tasks = len(company_ids) * len(year_range) * len(month_range)
-            app.scraper_progress.update({
-                'percentage': 0,
-                'completed': 0,
-                'total': total_tasks,
-                'status': 'running',
-                'last_update': time.time()
-            })
-    except (ImportError, AttributeError):
-        pass
+    # 初始化进度追踪
+    total_tasks = len(company_ids) * len(year_range) * len(month_range)
+    initialize(total_tasks)
     
     # 生成所有任务参数
     tasks = [(company_id, year, month) for company_id in company_ids 
@@ -273,34 +249,19 @@ def get_company_data(company_ids, year_range, month_range):
         
         logger.info(f"抓取完成，共获取 {len(results)} 筆数据")
         
-        # 完成后更新进度
-        try:
-            import app
-            if hasattr(app, 'scraper_progress'):
-                app.scraper_progress.update({
-                    'percentage': 100,  # 现在可以是100%了
-                    'completed': len(tasks),
-                    'total': len(tasks),
-                    'status': 'completed',
-                    'current_company': '已完成',
-                    'last_update': time.time()
-                })
-        except (ImportError, AttributeError):
-            pass
+        # 标记任务完成
+        complete()
         
         return results
     except Exception as e:
         logger.error(f"抓取过程中发生错误: {e}")
         
-        # 出错时更新进度
-        try:
-            import app
-            if hasattr(app, 'scraper_progress'):
-                app.scraper_progress.update({
-                    'status': 'error',
-                    'last_update': time.time()
-                })
-        except (ImportError, AttributeError):
-            pass
+        # 标记发生错误
+        error(str(e))
         
         raise e
+
+# 对外提供获取状态的函数
+def get_scraper_status():
+    """获取当前爬虫状态"""
+    return get_status()

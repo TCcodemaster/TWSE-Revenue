@@ -11,6 +11,8 @@ from flask_caching import Cache
 import traceback
 import threading
 
+# 導入新的進度追蹤模組
+from utils.progress_tracker import get_status
 # 配置日誌
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -195,37 +197,18 @@ def clear_cache():
         return jsonify({'error': str(e)}), 500
 
 
-# 進度查詢 API 端點
-
-
-# 用于存储爬虫进度的全局变量
-scraper_progress = {
-    'percentage': 0,
-    'completed': 0,
-    'total': 0,
-    'current_company': '',
-    'status': 'idle',  # idle, running, completed, error
-    'last_update': time.time()
-}
 
 @app.route('/api/scraper-progress', methods=['GET'])
 def get_scraper_progress():
     """获取爬虫进度信息"""
     try:
-        global scraper_progress
-        
-        # 检查进度是否已经很久没有更新（可能意味着后端在处理复杂请求）
-        current_time = time.time()
-        time_since_update = current_time - scraper_progress.get('last_update', current_time)
-        
-        # 如果状态是running但超过10秒没有更新，仍然返回运行中状态
-        if scraper_progress['status'] == 'running' and time_since_update > 10:
-            logger.info(f"进度长时间未更新: {time_since_update:.1f}秒")
-        
-        # 深拷贝进度数据，避免并发问题
-        progress_data = dict(scraper_progress)
+        # 直接從新模組獲取狀態
+        from utils.scraper import get_scraper_status
+        progress_data = get_scraper_status()
         
         # 添加额外信息帮助调试
+        current_time = time.time()
+        time_since_update = current_time - progress_data.get('last_update', current_time)
         progress_data['time_since_update'] = f"{time_since_update:.1f}秒"
         
         return jsonify(progress_data)
@@ -240,24 +223,11 @@ def get_scraper_progress():
             'status': 'error',
             'last_update': time.time()
         }), 500
-
 # 修改API调用函数，确保正确跟踪进度
 @app.route('/api/company-data', methods=['POST'])
 def get_company_data_api():
     try:
-        global scraper_progress
-        
-        # 重置进度
-        scraper_progress = {
-            'percentage': 0,
-            'completed': 0,
-            'total': 0,
-            'current_company': '',
-            'status': 'idle',
-            'last_update': time.time()
-        }
-        
-        # 检查请求格式
+        # 檢查請求格式
         if request.is_json:
             data = request.json
             if data is None:
@@ -273,37 +243,26 @@ def get_company_data_api():
                 'month_range': request.form.get('month_range', '')
             }
         
-        # 记录接收到的数据
-        logger.info(f"接收到的请求数据类型: {request.content_type}")
-        logger.info(f"接收到的请求数据: {data}")
+        # 記錄接收到的數據
+        logger.info(f"接收到的請求數據類型: {request.content_type}")
+        logger.info(f"接收到的請求數據: {data}")
         
-        # 验证必要参数
+        # 驗證必要參數
         if not data or not data.get('company_ids'):
             return jsonify({'error': '请提供公司代号'}), 400
         
-        # 分割公司代号
+        # 分割公司代號
         company_ids = [company_id.strip() for company_id in data.get('company_ids', '').split(',')]
         year_range_input = data.get('year_range', '')
         month_range_input = data.get('month_range', '')
 
-        # 建立请求的唯一缓存键
+        # 建立請求的唯一緩存鍵
         cache_key = f"company_data_{','.join(company_ids)}_{year_range_input}_{month_range_input}"
         
-        # 尝试从缓存获取数据
+        # 嘗試從緩存獲取數據
         cached_result = cache.get(cache_key)
         if cached_result is not None:
-            logger.info(f"从缓存获取数据: {cache_key}")
-            
-            # 即使是缓存数据，也模擬過程
-            scraper_progress.update({
-                'percentage': 100,
-                'completed': 1,
-                'total': 1,
-                'current_company': '從缓存加载',
-                'status': 'completed',
-                'last_update': time.time()
-            })
-            
+            logger.info(f"從緩存獲取數據: {cache_key}")
             return jsonify(cached_result)
         
         # 解析年份和月份范围
@@ -313,30 +272,10 @@ def get_company_data_api():
         # 验证解析后的数据
         if not company_ids or not year_range or not month_range:
             return jsonify({'error': '缺少必要参数或参数格式不正确'}), 400
-
-        # 更新进度状态为开始运行
-        total_tasks = len(company_ids) * len(year_range) * len(month_range)
-        scraper_progress.update({
-            'percentage': 0,
-            'completed': 0,
-            'total': total_tasks,
-            'current_company': company_ids[0],
-            'status': 'running',
-            'last_update': time.time()
-        })
         
         # 获取公司数据
         company_data = get_company_data(company_ids, year_range, month_range)
         
-        # 完成后更新进度状态
-        scraper_progress.update({
-            'percentage': 100,
-            'completed': total_tasks,
-            'total': total_tasks,
-            'status': 'completed',
-            'last_update': time.time()
-        })
-
         # 如果成功，添加到查询历史
         if company_data:
             db.add_query_history(
@@ -355,17 +294,11 @@ def get_company_data_api():
         return jsonify(result)
 
     except Exception as e:
-        # 发生错误时更新进度状态
-        scraper_progress.update({
-            'status': 'error',
-            'last_update': time.time()
-        })
-        
         system_status['error_count'] += 1
         error_detail = traceback.format_exc()
         logger.error(f"处理 API 请求时出错: {e}\n{error_detail}")
         return jsonify({'error': str(e)}), 500
-# 修改 get_company_data 函数的调用方式，添加进度更新
+
 # 这是一个简单的包装函数
 def get_company_data_with_progress(company_ids, year_range, month_range):
     """带进度追踪的公司数据获取函数"""

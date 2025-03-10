@@ -83,32 +83,35 @@ class Database:
                     INSERT INTO query_history (company_ids, year_range, month_range)
                     VALUES (?, ?, ?)
                     ''', (company_ids, year_range, month_range))
-                
-                # 只保留最近的 5 筆記錄
-                cursor.execute('''
-                DELETE FROM query_history 
-                WHERE id NOT IN (
-                    SELECT id FROM query_history ORDER BY created_at DESC LIMIT 5
-                )
-                ''')
-                
+                    
                 conn.commit()
+                
+                # 重要改進：清除查詢歷史的快取，確保下次獲取時能拿到最新數據
+                if 'query_history' in self._query_cache:
+                    del self._query_cache['query_history']
+                    
         except sqlite3.Error as e:
             logger.error(f"添加查詢歷史時出錯: {e}")
-    
-    def get_query_history(self):
-        """獲取查詢歷史記錄"""
+
+    def get_query_history(self, force_refresh=False):
+        """獲取查詢歷史記錄
+        
+        Args:
+            force_refresh (bool, optional): 是否強制刷新快取。默認為False。
+        """
         # 生成快取鍵
         cache_key = 'query_history'
         
-        # 檢查記憶體快取
-        if cache_key in self._query_cache:
+        # 檢查記憶體快取（如果不是強制刷新）
+        if not force_refresh and cache_key in self._query_cache:
             cache_time, cache_data = self._query_cache[cache_key]
             if time.time() - cache_time < self._cache_timeout:
                 return cache_data
         
         try:
             with sqlite3.connect(self.db_path) as conn:
+                # 使用字典游標，使結果更易於處理
+                conn.row_factory = sqlite3.Row
                 cursor = conn.cursor()
                 cursor.execute('''
                 SELECT company_ids, year_range, month_range 
@@ -121,10 +124,11 @@ class Database:
                 history = []
                 
                 for row in results:
+                    # 轉換為字典，確保資料結構一致
                     history.append({
-                        'company_ids': row[0],
-                        'year_range': row[1],
-                        'month_range': row[2]
+                        'company_ids': row['company_ids'],
+                        'year_range': row['year_range'],
+                        'month_range': row['month_range']
                     })
                 
                 # 更新記憶體快取
@@ -133,7 +137,6 @@ class Database:
         except sqlite3.Error as e:
             logger.error(f"獲取查詢歷史時出錯: {e}")
             return []
-    
     def cache_data(self, company_id, year, month, data):
         """緩存公司數據"""
         try:
