@@ -160,8 +160,8 @@
   <!-- 再載入 main.js -->
   <!-- <script src="{{ url_for('static', filename='js/main.js') }}"></script> -->
   <!-- 由於使用 ES6 模組系統，只需要載入主要的入口點檔案 -->
-
-  <script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <!-- <script type="module" src="{{ url_for('static', filename='js/main.js') }}"></script> -->
   <!-- PWA 註冊的 script (請確認標籤是否正確) -->
   <script src="{{ url_for('static', filename='js/pwa.js') }}"></script>
 

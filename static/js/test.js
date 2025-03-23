@@ -43,56 +43,56 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         // 加入標籤
-// 加入標籤
-  // 加入標籤
-  function addCompanyTag(company) {
-    if (selectedCompanies.includes(company.code)) return;
-    selectedCompanies.push(company.code);
-    
-    // 創建標籤元素
-    let tag = document.createElement("span");
-    tag.classList.add("company-tag");
-    
-    // 創建標籤文字元素
-    let tagText = document.createElement("span");
-    tagText.textContent = `${company.code} ${company.name}`;
-    
-    // 創建移除按鈕 (iPhone 風格的小叉)
-    let removeButton = document.createElement("span");
-    removeButton.classList.add("remove-btn");
-    removeButton.innerHTML = "×";
-    
-    // 點擊移除按鈕可移除標籤
-    removeButton.addEventListener("click", function(event) {
-        event.stopPropagation(); // 阻止事件冒泡到標籤元素
-        selectedCompanies = selectedCompanies.filter(
-            (code) => code !== company.code
-        );
-        tag.remove();
-        updateHiddenInput();
-    });
-    
-    // 將文字和移除按鈕加入標籤元素
-    tag.appendChild(tagText);
-    tag.appendChild(removeButton);
-    tag.dataset.code = company.code;
-    
-    selectedCompaniesContainer.appendChild(tag);
-    updateHiddenInput();
-}
+        // 加入標籤
+        // 加入標籤
+        function addCompanyTag(company) {
+            if (selectedCompanies.includes(company.code)) return;
+            selectedCompanies.push(company.code);
 
-// 更新隱藏欄位的值
-function updateHiddenInput() {
-    hiddenInput.value = selectedCompanies.join(",");
-    console.log("公司", hiddenInput.value);
-}
+            // 創建標籤元素
+            let tag = document.createElement("span");
+            tag.classList.add("company-tag");
 
-// 點擊外部時，清除自動補全選單
-document.addEventListener("click", function(event) {
-    if (!inputField.contains(event.target) && !autocompleteList.contains(event.target)) {
-        autocompleteList.innerHTML = "";
-    }
-});
+            // 創建標籤文字元素
+            let tagText = document.createElement("span");
+            tagText.textContent = `${company.code} ${company.name}`;
+
+            // 創建移除按鈕 (iPhone 風格的小叉)
+            let removeButton = document.createElement("span");
+            removeButton.classList.add("remove-btn");
+            removeButton.innerHTML = "×";
+
+            // 點擊移除按鈕可移除標籤
+            removeButton.addEventListener("click", function (event) {
+                event.stopPropagation(); // 阻止事件冒泡到標籤元素
+                selectedCompanies = selectedCompanies.filter(
+                    (code) => code !== company.code
+                );
+                tag.remove();
+                updateHiddenInput();
+            });
+
+            // 將文字和移除按鈕加入標籤元素
+            tag.appendChild(tagText);
+            tag.appendChild(removeButton);
+            tag.dataset.code = company.code;
+
+            selectedCompaniesContainer.appendChild(tag);
+            updateHiddenInput();
+        }
+
+        // 更新隱藏欄位的值
+        function updateHiddenInput() {
+            hiddenInput.value = selectedCompanies.join(",");
+            console.log("公司", hiddenInput.value);
+        }
+
+        // 點擊外部時，清除自動補全選單
+        document.addEventListener("click", function (event) {
+            if (!inputField.contains(event.target) && !autocompleteList.contains(event.target)) {
+                autocompleteList.innerHTML = "";
+            }
+        });
 
     }
 
@@ -664,18 +664,18 @@ function fetchCompanyData() {
 
     // 显示结果区域和加载讯息
     document.getElementById('results-section').style.display = 'block';
-    
+
     // 確保加載訊息增強
     enhanceLoadingMessage();
     document.querySelector('.loading-message').style.display = 'block';
-    
+
     document.querySelector('.error-message').style.display = 'none';
     document.getElementById('chart-section').style.display = 'none';
 
     // 清空表格
     const tableBody = document.querySelector('#results-table tbody');
     tableBody.innerHTML = '';
-    
+
     // 开始进度轮询
     startProgressPolling();
 
@@ -691,53 +691,53 @@ function fetchCompanyData() {
             month_range: monthRange
         }),
     })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`網路回應不正常: ${response.status}`);
-        }
-        return response.json();
-    })
-    .then(data => {
-        // 停止轮询
-        stopProgressPolling();
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`網路回應不正常: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            // 停止轮询
+            stopProgressPolling();
 
-        if (data.error) {
-            throw new Error(data.error);
-        }
+            if (data.error) {
+                throw new Error(data.error);
+            }
 
-        // 存储当前数据
-        currentData = data.data;
+            // 存储当前数据
+            currentData = data.data;
 
-        // 填充表格
-        populateTable(currentData);
-        
-        // 隐藏加载讯息
-        document.querySelector('.loading-message').style.display = 'none';
-    })
-    .catch(error => {
-        // 停止轮询
-        stopProgressPolling();
-        
-        // 隐藏加载讯息，显示错误讯息
-        document.querySelector('.loading-message').style.display = 'none';
-        const errorElement = document.querySelector('.error-message');
-        errorElement.textContent = `錯誤: ${error.message}`;
-        errorElement.style.display = 'block';
-    });
+            // 填充表格
+            populateTable(currentData);
+
+            // 隐藏加载讯息
+            document.querySelector('.loading-message').style.display = 'none';
+        })
+        .catch(error => {
+            // 停止轮询
+            stopProgressPolling();
+
+            // 隐藏加载讯息，显示错误讯息
+            document.querySelector('.loading-message').style.display = 'none';
+            const errorElement = document.querySelector('.error-message');
+            errorElement.textContent = `錯誤: ${error.message}`;
+            errorElement.style.display = 'block';
+        });
 }
 
 // 开始轮询进度
 function startProgressPolling() {
     console.log("開始進度輪詢");
-    
+
     // 重置完成标志
     completedFlag = false;
-    
+
     // 停止现有轮询
     stopProgressPolling();
-    
+
     // 开始轮询
-    progressInterval = setInterval(function() {
+    progressInterval = setInterval(function () {
         fetch('/api/scraper-progress')
             .then(response => {
                 if (!response.ok) {
@@ -747,10 +747,10 @@ function startProgressPolling() {
             })
             .then(data => {
                 console.log("進度數據:", data);
-                
+
                 // 更新进度
                 const status = updateProgress(data);
-                
+
                 // 检查是否完成或出错
                 if (status === 'completed' || status === 'error') {
                     if (status === 'error') {
@@ -761,9 +761,9 @@ function startProgressPolling() {
                             errorElement.style.display = 'block';
                         }
                     }
-                    
+
                     // 延迟停止轮询
-                    setTimeout(function() {
+                    setTimeout(function () {
                         stopProgressPolling();
                     }, 1000);
                 }
@@ -787,23 +787,23 @@ function stopProgressPolling() {
 function enhanceLoadingMessage() {
     const loadingMessage = document.querySelector('.loading-message');
     if (!loadingMessage) return;
-    
+
     // 如果已经有进度条，不需要重新创建
     if (loadingMessage.querySelector('.progress-container')) return;
-    
+
     // 保留原始内容
     const originalContent = loadingMessage.innerHTML;
-    
+
     // 更清晰的信息结构
     const messageContainer = document.createElement('div');
     messageContainer.style.textAlign = 'center';
     messageContainer.style.marginBottom = '10px';
     messageContainer.innerHTML = originalContent;
-    
+
     // 创建进度条容器
     const progressContainer = document.createElement('div');
     progressContainer.className = 'progress-container mt-3';
-    
+
     // 创建进度条 - 更明显的设计
     progressContainer.innerHTML = `
         <div class="progress" style="height: 20px;">
@@ -812,12 +812,12 @@ function enhanceLoadingMessage() {
         </div>
         <div id="progress-info" class="small mt-2" style="font-size: 0.9em;">準備中...</div>
     `;
-    
+
     // 清空原有内容并添加新的结构
     loadingMessage.innerHTML = '';
     loadingMessage.appendChild(messageContainer);
     loadingMessage.appendChild(progressContainer);
-    
+
     return loadingMessage;
 }
 
@@ -825,15 +825,15 @@ function enhanceLoadingMessage() {
 function updateProgress(data) {
     const progressBar = document.getElementById('progress-bar');
     const progressInfo = document.getElementById('progress-info');
-    
+
     if (!progressBar || !progressInfo) return data.status;
-    
+
     // 更新进度条
     const percentage = data.percentage || 0;
     progressBar.style.width = `${percentage}%`;
     progressBar.textContent = `${percentage}%`;
     progressBar.setAttribute('aria-valuenow', percentage);
-    
+
     // 根据状态更新颜色
     if (data.status === 'error') {
         progressBar.classList.remove('bg-primary', 'bg-success', 'bg-warning');
@@ -849,7 +849,7 @@ function updateProgress(data) {
         progressBar.classList.remove('bg-success', 'bg-danger', 'bg-warning');
         progressBar.classList.add('bg-primary');
     }
-    
+
     // 更新进度信息
     let statusText = '';
     switch (data.status) {
@@ -859,27 +859,27 @@ function updateProgress(data) {
         case 'error': statusText = '發生錯誤'; break;
         default: statusText = data.status;
     }
-    
+
     const timeSinceUpdate = data.time_since_update ? data.time_since_update : '';
-    
+
     progressInfo.innerHTML = `
         ${statusText} - 完成: ${data.completed}/${data.total} 
         <br>公司: ${data.current_company || '無'} ${timeSinceUpdate}
     `;
-    
+
     return data.status;
 }
 
 // 确保在页面加载完成后绑定事件
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // 这里可能需要重新绑定表单提交事件，以使用修改后的 fetchCompanyData 函数
     const searchForm = document.getElementById('search-form');
     if (searchForm) {
         // 移除现有的事件监听器 (如果可能的话)
         searchForm.removeEventListener('submit', fetchCompanyData);
-        
+
         // 添加新的事件监听器
-        searchForm.addEventListener('submit', function(e) {
+        searchForm.addEventListener('submit', function (e) {
             e.preventDefault();
             fetchCompanyData();
         });
@@ -887,122 +887,122 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // 添加到 main.js 檔案中
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // 處理歷史記錄折疊
     const collapseElement = document.getElementById('collapseHistory');
     if (collapseElement) {
-      // 監聽折疊狀態變化
-      collapseElement.addEventListener('shown.bs.collapse', function() {
-        const toggleButton = document.querySelector('[data-bs-toggle="collapse"]');
-        if (toggleButton) {
-          toggleButton.querySelector('.collapse-text').textContent = '收起記錄';
-          toggleButton.querySelector('.collapse-icon').classList.remove('fa-chevron-down');
-          toggleButton.querySelector('.collapse-icon').classList.add('fa-chevron-up');
-        }
-      });
-  
-      collapseElement.addEventListener('hidden.bs.collapse', function() {
-        const toggleButton = document.querySelector('[data-bs-toggle="collapse"]');
-        if (toggleButton) {
-          const hiddenCount = document.querySelectorAll('.history-list-more .history-item').length;
-          toggleButton.querySelector('.collapse-text').textContent = `更多記錄 (${hiddenCount})`;
-          toggleButton.querySelector('.collapse-icon').classList.remove('fa-chevron-up');
-          toggleButton.querySelector('.collapse-icon').classList.add('fa-chevron-down');
-        }
-      });
+        // 監聽折疊狀態變化
+        collapseElement.addEventListener('shown.bs.collapse', function () {
+            const toggleButton = document.querySelector('[data-bs-toggle="collapse"]');
+            if (toggleButton) {
+                toggleButton.querySelector('.collapse-text').textContent = '收起記錄';
+                toggleButton.querySelector('.collapse-icon').classList.remove('fa-chevron-down');
+                toggleButton.querySelector('.collapse-icon').classList.add('fa-chevron-up');
+            }
+        });
+
+        collapseElement.addEventListener('hidden.bs.collapse', function () {
+            const toggleButton = document.querySelector('[data-bs-toggle="collapse"]');
+            if (toggleButton) {
+                const hiddenCount = document.querySelectorAll('.history-list-more .history-item').length;
+                toggleButton.querySelector('.collapse-text').textContent = `更多記錄 (${hiddenCount})`;
+                toggleButton.querySelector('.collapse-icon').classList.remove('fa-chevron-up');
+                toggleButton.querySelector('.collapse-icon').classList.add('fa-chevron-down');
+            }
+        });
     }
-  
+
     // 確保所有歷史項目的事件處理（包括折疊區域內的）
     const allHistoryItems = document.querySelectorAll('.history-item');
     allHistoryItems.forEach(item => {
-      item.addEventListener('click', function(e) {
-        e.preventDefault();
-        
-        // 設定公司代號
-        const companyIds = this.dataset.companyIds;
-        document.getElementById('company-ids').value = companyIds;
-        document.getElementById('company-ids-hidden').value = companyIds;
-  
-        // 處理公司標籤（如果您使用標籤顯示選擇的公司）
-        updateCompanyTags(companyIds);
-  
-        // 解析年份範圍 (例如 "111-112" 或 "112")
-        const yearRange = this.dataset.yearRange;
-        if (yearRange.includes('-')) {
-          const years = yearRange.split('-');
-          document.getElementById('start-year').value = years[0];
-          document.getElementById('end-year').value = years[1];
-        } else {
-          document.getElementById('start-year').value = yearRange;
-          document.getElementById('end-year').value = yearRange;
-        }
-  
-        // 解析月份範圍 (例如 "1-3" 或 "6")
-        const monthRange = this.dataset.monthRange;
-        if (monthRange.includes('-')) {
-          const months = monthRange.split('-');
-          document.getElementById('start-month').value = months[0];
-          document.getElementById('end-month').value = months[1];
-        } else {
-          document.getElementById('start-month').value = monthRange;
-          document.getElementById('end-month').value = monthRange;
-        }
-      });
+        item.addEventListener('click', function (e) {
+            e.preventDefault();
+
+            // 設定公司代號
+            const companyIds = this.dataset.companyIds;
+            document.getElementById('company-ids').value = companyIds;
+            document.getElementById('company-ids-hidden').value = companyIds;
+
+            // 處理公司標籤（如果您使用標籤顯示選擇的公司）
+            updateCompanyTags(companyIds);
+
+            // 解析年份範圍 (例如 "111-112" 或 "112")
+            const yearRange = this.dataset.yearRange;
+            if (yearRange.includes('-')) {
+                const years = yearRange.split('-');
+                document.getElementById('start-year').value = years[0];
+                document.getElementById('end-year').value = years[1];
+            } else {
+                document.getElementById('start-year').value = yearRange;
+                document.getElementById('end-year').value = yearRange;
+            }
+
+            // 解析月份範圍 (例如 "1-3" 或 "6")
+            const monthRange = this.dataset.monthRange;
+            if (monthRange.includes('-')) {
+                const months = monthRange.split('-');
+                document.getElementById('start-month').value = months[0];
+                document.getElementById('end-month').value = months[1];
+            } else {
+                document.getElementById('start-month').value = monthRange;
+                document.getElementById('end-month').value = monthRange;
+            }
+        });
     });
-  });
-  
-  // 更新公司標籤的輔助函數（如果您使用標籤顯示選擇的公司）
-  function updateCompanyTags(companyIdsStr) {
+});
+
+// 更新公司標籤的輔助函數（如果您使用標籤顯示選擇的公司）
+function updateCompanyTags(companyIdsStr) {
     // 如果不需要處理標籤，可以移除此函數
     if (!window.STOCK_LIST || !Array.isArray(window.STOCK_LIST)) {
-      return;
+        return;
     }
-  
+
     // 清空現有標籤
     const selectedCompaniesContainer = document.getElementById('selected-companies');
     if (selectedCompaniesContainer) {
-      selectedCompaniesContainer.innerHTML = '';
+        selectedCompaniesContainer.innerHTML = '';
     }
-  
+
     // 解析公司代號
     const companyIds = companyIdsStr.split(',');
-    
+
     // 重新建立標籤
     const selectedCompanies = [];
-    
+
     companyIds.forEach(companyId => {
-      const trimmedId = companyId.trim();
-      if (trimmedId) {
-        selectedCompanies.push(trimmedId);
-        
-        // 找到對應的公司資訊
-        const companyInfo = window.STOCK_LIST.find(company => company.code === trimmedId);
-        
-        if (companyInfo && selectedCompaniesContainer) {
-          // 創建新標籤
-          const tag = document.createElement('span');
-          tag.classList.add('company-tag');
-          
-          const tagText = document.createElement('span');
-          tagText.textContent = `${companyInfo.code} ${companyInfo.name}`;
-          
-          const removeButton = document.createElement('span');
-          removeButton.classList.add('remove-btn');
-          removeButton.innerHTML = '×';
-          
-          removeButton.addEventListener('click', function(event) {
-            event.stopPropagation();
-            selectedCompanies.splice(selectedCompanies.indexOf(trimmedId), 1);
-            tag.remove();
-            document.getElementById('company-ids-hidden').value = selectedCompanies.join(',');
-          });
-          
-          tag.appendChild(tagText);
-          tag.appendChild(removeButton);
-          tag.dataset.code = trimmedId;
-          
-          selectedCompaniesContainer.appendChild(tag);
+        const trimmedId = companyId.trim();
+        if (trimmedId) {
+            selectedCompanies.push(trimmedId);
+
+            // 找到對應的公司資訊
+            const companyInfo = window.STOCK_LIST.find(company => company.code === trimmedId);
+
+            if (companyInfo && selectedCompaniesContainer) {
+                // 創建新標籤
+                const tag = document.createElement('span');
+                tag.classList.add('company-tag');
+
+                const tagText = document.createElement('span');
+                tagText.textContent = `${companyInfo.code} ${companyInfo.name}`;
+
+                const removeButton = document.createElement('span');
+                removeButton.classList.add('remove-btn');
+                removeButton.innerHTML = '×';
+
+                removeButton.addEventListener('click', function (event) {
+                    event.stopPropagation();
+                    selectedCompanies.splice(selectedCompanies.indexOf(trimmedId), 1);
+                    tag.remove();
+                    document.getElementById('company-ids-hidden').value = selectedCompanies.join(',');
+                });
+
+                tag.appendChild(tagText);
+                tag.appendChild(removeButton);
+                tag.dataset.code = trimmedId;
+
+                selectedCompaniesContainer.appendChild(tag);
+            }
         }
-      }
     });
-  }
+}
