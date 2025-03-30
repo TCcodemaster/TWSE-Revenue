@@ -10,6 +10,7 @@ import time
 from functools import lru_cache
 import random
 import threading
+from utils.database import Database
 # 導入新的進度追蹤器
 from utils.progress_tracker import initialize, update_company, increment, complete, error, get_status
 
@@ -21,6 +22,9 @@ logger = logging.getLogger(__name__)
 CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'cache')
 os.makedirs(CACHE_DIR, exist_ok=True)
 
+#  建立 db 實例
+db_path = os.path.join(os.environ.get("DATABASE_DIR", "./data"), "data.db")
+db = Database(db_path)
 # 添加请求限制和退避策略
 REQUEST_DELAY = 0.001  # 基本延遲時間 (秒)
 MAX_WORKERS = 8  # 降低並行請求數
@@ -74,7 +78,7 @@ def validate_cache_data(data):
     required_fields = ['公司代號', '公司名稱', '當月營收', '上月營收', '去年當月營收']
     return all(field in data for field in required_fields) and data.get('當月營收') != ''
 
-def save_to_cache(company_id, year, month, data):
+def save_to_file_cache(company_id, year, month, data):
     """保存數據到快取"""
     try:
         cache_path = get_cache_path(company_id, year, month)
@@ -83,7 +87,7 @@ def save_to_cache(company_id, year, month, data):
     except Exception as e:
         logger.error(f"保存快取時出錯: {e}")
 
-def load_from_cache(company_id, year, month):
+def load_from_file_cache(company_id, year, month):
     """從快取加載數據"""
     cache_path = get_cache_path(company_id, year, month)
     if os.path.exists(cache_path):
@@ -180,43 +184,62 @@ def get_company_basic_data(company_id, year, month, html_content):
     return {}
 
 def process_company_data(args):
-    """处理单个公司的数据，使用改进的缓存和请求机制"""
+    """統一入口：處理單一公司某月資料（含快取/爬取/入庫）"""
     company_id, year, month = args
-    base_url = 'https://mopsov.twse.com.tw/nas/t21/sii/t21sc03_{year}_{month}_0.html'
-
-    url = base_url.format(year=year, month=month)
-    
-    # 更新进度
     update_company(company_id, year, month)
-    
-    # 优先从缓存加载
-    cached_data = load_from_cache(company_id, year, month)
-    if cached_data and validate_cache_data(cached_data):
-        logger.info(f"从缓存获取 {company_id} {year}年{month}月 的数据")
-        increment()
-        throttler.report_success()  # 報告成功
-        return cached_data
-    
-    # 缓存不存在或无效，抓取数据
-    logger.info(f"抓取 {company_id} {year}年{month}月 的数据")
-    
-    html_content = fetch_url(url)
-    
-    if not html_content:
-        throttler.report_failure()  # 報告失敗
-        increment()
-        logger.warning(f"获取 {company_id} {year}年{month}月 的数据失败")
-        return None
-    
-    data = get_company_basic_data(company_id, year, month, html_content)
-    
-    if data and len(data) > 0:
-        save_to_cache(company_id, year, month, data)
-        throttler.report_success()  # 報告成功
-    else:
-        throttler.report_failure()  # 報告失敗
-    
+
+    data = (
+        load_valid_cache_or_db(company_id, year, month) or
+        fetch_and_process(company_id, year, month)
+    )
+
     increment()
+    return data
+
+
+def load_valid_cache_or_db(company_id, year, month):
+    """先從快取，再從資料庫讀取資料"""
+    
+    # 檢查 JSON 快取檔案
+    cached = load_from_file_cache(company_id, year, month)
+    if cached and validate_cache_data(cached):
+        logger.info(f"✅ 使用快取檔案：{company_id} {year}/{month}")
+        throttler.report_success()
+        return cached
+
+    # 檢查 SQLite 資料庫
+    db_data = db.get_revenue_data(company_id, year, month)
+    if db_data and validate_cache_data(db_data):
+        logger.info(f"📦 使用資料庫快取：{company_id} {year}/{month}")
+        throttler.report_success()
+        return db_data
+
+    # 快取與資料庫皆無效
+    return None
+
+
+def fetch_and_process(company_id, year, month):
+    """無快取時，進行抓取 + 解析 + 入庫"""
+    url = f"https://mopsov.twse.com.tw/nas/t21/sii/t21sc03_{year}_{month}_0.html"
+    logger.info(f"🌐 開始爬蟲：{company_id} {year}/{month}")
+
+    html = fetch_url(url)
+    if not html:
+        logger.warning(f"❌ 抓取失敗：{company_id} {year}/{month}")
+        throttler.report_failure()
+        return None
+
+    data = get_company_basic_data(company_id, year, month, html)
+    if not data:
+        logger.warning(f"⚠️ 解析結果為空：{company_id} {year}/{month}")
+        throttler.report_failure()
+        return None
+
+    # ✅ 寫入快取與資料庫
+    save_to_file_cache(company_id, year, month, data)
+    db.insert_revenue_data(company_id, year, month, data)
+    throttler.report_success()
+
     return data
 
 # 修改 get_company_data 函数

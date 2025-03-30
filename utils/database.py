@@ -35,7 +35,7 @@ class Database:
                 
                 # 建立數據快取表
                 cursor.execute('''
-                CREATE TABLE IF NOT EXISTS data_cache (
+                CREATE TABLE IF NOT EXISTS revenue_data (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     company_id TEXT NOT NULL,
                     year INTEGER NOT NULL,
@@ -48,8 +48,8 @@ class Database:
                 
                 # 為數據快取表添加索引以提高查詢效率
                 cursor.execute('''
-                CREATE INDEX IF NOT EXISTS idx_data_cache_lookup 
-                ON data_cache(company_id, year, month)
+                CREATE INDEX IF NOT EXISTS idx_revenue_data_lookup 
+                ON revenue_data(company_id, year, month)
                 ''')
                 
                 conn.commit()
@@ -136,13 +136,13 @@ class Database:
         except sqlite3.Error as e:
             logger.error(f"獲取查詢歷史時出錯: {e}")
             return []
-    def cache_data(self, company_id, year, month, data):
+    def insert_revenue_data(self, company_id, year, month, data):
         """緩存公司數據"""
         try:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
-                INSERT OR REPLACE INTO data_cache (company_id, year, month, data)
+                INSERT OR REPLACE INTO revenue_data (company_id, year, month, data)
                 VALUES (?, ?, ?, ?)
                 ''', (company_id, year, month, json.dumps(data, ensure_ascii=False)))
                 conn.commit()
@@ -153,7 +153,7 @@ class Database:
         except sqlite3.Error as e:
             logger.error(f"緩存數據時出錯: {e}")
     
-    def get_cached_data(self, company_id, year, month, max_age_days=30):
+    def get_revenue_data(self, company_id, year, month, max_age_days=30):
         """獲取緩存的公司數據，延長數據有效期至30天"""
         # 生成快取鍵
         cache_key = f'{company_id}_{year}_{month}'
@@ -168,7 +168,7 @@ class Database:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.cursor()
                 cursor.execute('''
-                SELECT data FROM data_cache 
+                SELECT data FROM revenue_data 
                 WHERE company_id = ? AND year = ? AND month = ? 
                 AND (julianday('now') - julianday(created_at)) <= ?
                 ''', (company_id, year, month, max_age_days))
