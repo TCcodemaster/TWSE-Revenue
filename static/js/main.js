@@ -289,19 +289,14 @@ function fetchCompanyData() {
   const endYear = document.getElementById('end-year').value;
   const startMonth = document.getElementById('start-month').value;
   const endMonth = document.getElementById('end-month').value;
+  
+  // 使用配置選項創建 ProgressTracker
   const progressTracker = new ProgressTracker({
-    // 自定義進度 API 的 URL
     progressUrl: '/api/scraper-progress',
-    
-    // 自定義輪詢間隔時間（毫秒）
     intervalTime: 1000,
-    
-    // 當進度完成時的回調函數
     onCompleted: function(data) {
       console.log('進度追蹤完成', data);
     },
-    
-    // 當發生錯誤時的回調函數
     onError: function(error) {
       console.error('進度追蹤出錯:', error);
       const errorElement = document.querySelector('.error-message');
@@ -324,9 +319,10 @@ function fetchCompanyData() {
   // 清空表格
   const tableBody = document.querySelector('#results-table tbody');
   tableBody.innerHTML = '';
+  
   // 在發送請求前：
   progressTracker.enhanceLoadingMessage();  // 建立進度條的 DOM 結構
-  progressTracker.startProgressPolling();     // 啟動進度輪詢
+  progressTracker.startProgressPolling();   // 啟動進度輪詢
 
   // 發送 API 請求
   fetch('/api/company-data', {
@@ -347,10 +343,9 @@ function fetchCompanyData() {
       return response.json();
     })
     .then(data => {
-      // 隱藏加載訊息
-      document.querySelector('.loading-message').style.display = 'none';
-      // 請求完成或錯誤後：
+      // 從第二個版本採用：先停止輪詢再隱藏消息
       progressTracker.stopProgressPolling();
+      document.querySelector('.loading-message').style.display = 'none';
 
       if (data.error) {
         throw new Error(data.error);
@@ -363,7 +358,8 @@ function fetchCompanyData() {
       populateTable(currentData);
     })
     .catch(error => {
-      // 隱藏加載訊息，顯示錯誤訊息
+      // 從第二個版本採用：確保錯誤時也停止輪詢
+      progressTracker.stopProgressPolling();
       document.querySelector('.loading-message').style.display = 'none';
       const errorElement = document.querySelector('.error-message');
       errorElement.textContent = `錯誤: ${error.message}`;
@@ -719,81 +715,6 @@ function setupMobileNavigation() {
   }
 }
 
-
-
-// 将此代码添加到 main.js 文件的底部，或替换现有的进度轮询代码
-
-
-
-// 修正 fetchCompanyData 函数，确保在发送请求前启动进度轮询
-function fetchCompanyData() {
-  const companyIds = document.getElementById('company-ids-hidden').value;
-  const startYear = document.getElementById('start-year').value;
-  const endYear = document.getElementById('end-year').value;
-  const startMonth = document.getElementById('start-month').value;
-  const endMonth = document.getElementById('end-month').value;
-  // 建立一個新的進度追蹤器實例（或使用全域/共享實例）
-  const progressTracker = new ProgressTracker();
-
-  const yearRange = `${startYear}-${endYear}`;
-  const monthRange = `${startMonth}-${endMonth}`;
-
-  // 顯示結果區域和加載訊息
-  document.getElementById('results-section').style.display = 'block';
-  document.querySelector('.loading-message').style.display = 'block';
-  document.querySelector('.error-message').style.display = 'none';
-  document.getElementById('chart-section').style.display = 'none';
-
-  // 清空表格
-  const tableBody = document.querySelector('#results-table tbody');
-  tableBody.innerHTML = '';
-
-  // 在發送請求前：呼叫進度追蹤器的方法
-  progressTracker.enhanceLoadingMessage();  // 建立進度條的 DOM 結構
-  progressTracker.startProgressPolling();     // 啟動進度輪詢
-
-  // 發送 API 請求
-  fetch('/api/company-data', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      company_ids: companyIds,
-      year_range: yearRange,
-      month_range: monthRange
-    }),
-  })
-    .then(response => {
-      if (!response.ok) {
-        throw new Error('網路回應不正常');
-      }
-      return response.json();
-    })
-    .then(data => {
-      // 請求完成後停止輪詢
-      progressTracker.stopProgressPolling();
-      // 隱藏 loading 訊息
-      document.querySelector('.loading-message').style.display = 'none';
-
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      // 儲存當前數據
-      currentData = data.data;
-      // 填充表格
-      populateTable(currentData);
-    })
-    .catch(error => {
-      // 錯誤時停止輪詢
-      progressTracker.stopProgressPolling();
-      document.querySelector('.loading-message').style.display = 'none';
-      const errorElement = document.querySelector('.error-message');
-      errorElement.textContent = `錯誤: ${error.message}`;
-      errorElement.style.display = 'block';
-    });
-}
 
 
 // 确保在页面加载完成后绑定事件
