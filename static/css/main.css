@@ -1,0 +1,71 @@
+/* 自動補全和標籤樣式 */
+.company-search-container {
+    position: relative;
+}
+
+.autocomplete-list {
+    position: absolute;
+    width: 100%;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1000;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.autocomplete-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.autocomplete-item:hover {
+    background-color: #f8f9fa;
+}
+
+.company-code {
+    font-weight: bold;
+    margin-right: 8px;
+}
+
+.company-industry {
+    color: #6c757d;
+    font-size: 0.85em;
+    margin-left: auto;
+}
+
+.autocomplete-more-info {
+    padding: 8px 12px;
+    font-size: 0.85em;
+    color: #6c757d;
+    background-color: #f8f9fa;
+    text-align: center;
+}
+
+.company-tag {
+    display: inline-flex;
+    align-items: center;
+    margin: 4px;
+    padding: 5px 10px;
+    background-color: #e9ecef;
+    border-radius: 20px;
+    font-size: 0.9em;
+}
+
+.company-tag-industry {
+    color: #6c757d;
+    font-size: 0.75em;
+    margin: 0 5px;
+}
+
+.remove-btn {
+    margin-left: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    color: #dc3545;
+}

@@ -13,6 +13,20 @@
         <form id="search-form" class="row g-3">
           <div class="mb-3">
             <label for="company-ids" class="form-label">公司代號</label>
+            <div class="row mb-2">
+              <div class="col-md-6">
+                <select id="industry-filter" class="form-select">
+                  <option value="">全部行業</option>
+                  <!-- 將由 JavaScript 動態填充行業選項 -->
+                </select>
+              </div>
+              <div class="col-md-6">
+                <select id="market-filter" class="form-select">
+                  <option value="">全部市場</option>
+                  <!-- 將由 JavaScript 動態填充市場選項 -->
+                </select>
+              </div>
+            </div>
             <!-- 包裝在一個相對定位的容器中 -->
             <div class="company-search-container">
               <input type="text" class="form-control" id="company-ids" placeholder="請輸入公司代號">

@@ -154,96 +154,149 @@ document.addEventListener('DOMContentLoaded', function () {
   // === 自動補全與標籤功能開始 ===
   if (!window.STOCK_LIST || !Array.isArray(window.STOCK_LIST)) {
     console.error("STOCK_LIST 未正確載入！");
-  } else {
-    const inputField = document.getElementById("company-ids");
-    const autocompleteList = document.getElementById("autocomplete-results");
-    const selectedCompaniesContainer = document.getElementById("selected-companies");
-    const hiddenInput = document.getElementById("company-ids-hidden");
-
-
-    let selectedCompanies = [];
-
-    // 監聽輸入事件，進行模糊搜尋
-    inputField.addEventListener("input", function () {
-      let query = this.value.trim();
-      autocompleteList.innerHTML = "";
-      if (query === "") return;
-
-      let matches = window.STOCK_LIST.filter(
-        (company) =>
-          company.code.includes(query) || company.name.includes(query)
-      );
-
-      matches.forEach((company) => {
-        let item = document.createElement("div");
-        item.classList.add("autocomplete-item");
-        item.textContent = `${company.code} ${company.name}`;
-        item.dataset.code = company.code;
-
-        item.addEventListener("click", function () {
-          addCompanyTag(company);
-          // 清空可見的輸入框
-          inputField.value = "";
-          autocompleteList.innerHTML = "";
-        });
-
-        autocompleteList.appendChild(item);
-      });
-    });
-
-    // 加入標籤
-    // 加入標籤
-    // 加入標籤
-    function addCompanyTag(company) {
-      if (selectedCompanies.includes(company.code)) return;
-      selectedCompanies.push(company.code);
-
-      // 創建標籤元素
-      let tag = document.createElement("span");
-      tag.classList.add("company-tag");
-
-      // 創建標籤文字元素
-      let tagText = document.createElement("span");
-      tagText.textContent = `${company.code} ${company.name}`;
-
-      // 創建移除按鈕 (iPhone 風格的小叉)
-      let removeButton = document.createElement("span");
-      removeButton.classList.add("remove-btn");
-      removeButton.innerHTML = "×";
-
-      // 點擊移除按鈕可移除標籤
-      removeButton.addEventListener("click", function (event) {
-        event.stopPropagation(); // 阻止事件冒泡到標籤元素
-        selectedCompanies = selectedCompanies.filter(
-          (code) => code !== company.code
-        );
-        tag.remove();
-        updateHiddenInput();
-      });
-
-      // 將文字和移除按鈕加入標籤元素
-      tag.appendChild(tagText);
-      tag.appendChild(removeButton);
-      tag.dataset.code = company.code;
-
-      selectedCompaniesContainer.appendChild(tag);
-      updateHiddenInput();
-    }
-
-    // 更新隱藏欄位的值
-    function updateHiddenInput() {
-      hiddenInput.value = selectedCompanies.join(",");
-      console.log("公司", hiddenInput.value);
-    }
-
-    // 點擊外部時，清除自動補全選單
-    document.addEventListener("click", function (event) {
-      if (!inputField.contains(event.target) && !autocompleteList.contains(event.target)) {
-        autocompleteList.innerHTML = "";
-      }
-    });
-
+    return;
   }
+
+  // 獲取必要的 DOM 元素
+  const inputField = document.getElementById("company-ids");
+  const autocompleteList = document.getElementById("autocomplete-results");
+  const selectedCompaniesContainer = document.getElementById("selected-companies");
+  const hiddenInput = document.getElementById("company-ids-hidden");
+  const industryFilter = document.getElementById('industry-filter');
+  const marketFilter = document.getElementById('market-filter');
+
+  let selectedCompanies = [];
+
+  // 初始化篩選選項
+  function populateStockFilters() {
+    if (!industryFilter || !marketFilter) return;
+
+    const industries = [...new Set(window.STOCK_LIST.map(stock => stock.industry))].sort();
+    const markets = [...new Set(window.STOCK_LIST.map(stock => stock.market))].sort();
+    
+    industries.forEach(industry => {
+      const option = document.createElement('option');
+      option.value = industry;
+      option.textContent = industry;
+      industryFilter.appendChild(option);
+    });
+    
+    markets.forEach(market => {
+      const option = document.createElement('option');
+      option.value = market;
+      option.textContent = market;
+      marketFilter.appendChild(option);
+    });
+  }
+
+  // 自動補全和篩選函數
+  function updateAutoCompleteResults() {
+    const query = inputField.value.trim();
+    const selectedIndustry = industryFilter.value;
+    const selectedMarket = marketFilter.value;
+    
+    autocompleteList.innerHTML = "";
+    
+    // 如果沒有任何篩選條件，不顯示結果
+    if (!query && !selectedIndustry && !selectedMarket) return;
+    
+    // 篩選邏輯
+    const matches = window.STOCK_LIST.filter(company => {
+      const matchesQuery = !query || 
+                           company.code.includes(query) || 
+                           company.name.includes(query);
+      
+      const matchesIndustry = !selectedIndustry || 
+                              company.industry === selectedIndustry;
+      
+      const matchesMarket = !selectedMarket || 
+                            company.market === selectedMarket;
+      
+      return matchesQuery && matchesIndustry && matchesMarket;
+    });
+    
+    // 限制結果數量
+    const displayMatches = matches.slice(0, 20);
+    
+    // 渲染結果
+    displayMatches.forEach((company) => {
+      const item = document.createElement("div");
+      item.classList.add("autocomplete-item");
+      item.innerHTML = `
+        <span class="company-code">${company.code}</span> 
+        <span class="company-name">${company.name}</span>
+        <small class="company-industry">${company.industry}</small>
+      `;
+      
+      item.dataset.code = company.code;
+      
+      item.addEventListener("click", () => {
+        addCompanyTag(company);
+        inputField.value = "";
+        autocompleteList.innerHTML = "";
+      });
+      
+      autocompleteList.appendChild(item);
+    });
+  }
+
+  // 加入標籤函數
+  function addCompanyTag(company) {
+    if (selectedCompanies.includes(company.code)) return;
+    selectedCompanies.push(company.code);
+
+    // 創建標籤元素
+    const tag = document.createElement("span");
+    tag.classList.add("company-tag");
+
+    // 創建標籤文字元素
+    const tagText = document.createElement("span");
+    tagText.textContent = `${company.code} ${company.name}`;
+
+    // 創建移除按鈕
+    const removeButton = document.createElement("span");
+    removeButton.classList.add("remove-btn");
+    removeButton.innerHTML = "×";
+
+    // 點擊移除按鈕可移除標籤
+    removeButton.addEventListener("click", (event) => {
+      event.stopPropagation();
+      selectedCompanies = selectedCompanies.filter(
+        (code) => code !== company.code
+      );
+      tag.remove();
+      updateHiddenInput();
+    });
+
+    // 將文字和移除按鈕加入標籤元素
+    tag.appendChild(tagText);
+    tag.appendChild(removeButton);
+    tag.dataset.code = company.code;
+
+    selectedCompaniesContainer.appendChild(tag);
+    updateHiddenInput();
+  }
+
+  // 更新隱藏欄位的值
+  function updateHiddenInput() {
+    hiddenInput.value = selectedCompanies.join(",");
+    console.log("已選公司:", hiddenInput.value);
+  }
+
+  // 事件綁定
+  inputField.addEventListener("input", updateAutoCompleteResults);
+  industryFilter.addEventListener('change', updateAutoCompleteResults);
+  marketFilter.addEventListener('change', updateAutoCompleteResults);
+
+  // 點擊外部時，清除自動補全選單
+  document.addEventListener("click", (event) => {
+    if (!inputField.contains(event.target) && !autocompleteList.contains(event.target)) {
+      autocompleteList.innerHTML = "";
+    }
+  });
+
+  // 初始化行業和市場篩選選項
+  populateStockFilters();
 
   // 移動端導航功能
   setupMobileNavigation();
@@ -868,149 +921,6 @@ function fetchCompanyData() {
     });
 }
 
-// 开始轮询进度
-// function startProgressPolling() {
-//   console.log("開始進度輪詢");
-
-//   // 重置完成标志
-//   completedFlag = false;
-
-//   // 停止现有轮询
-//   stopProgressPolling();
-
-//   // 开始轮询
-//   progressInterval = setInterval(function () {
-//     fetch('/api/scraper-progress')
-//       .then(response => {
-//         if (!response.ok) {
-//           throw new Error(`HTTP error! Status: ${response.status}`);
-//         }
-//         return response.json();
-//       })
-//       .then(data => {
-//         console.log("進度數據:", data);
-
-//         // 更新进度
-//         const status = updateProgress(data);
-
-//         // 检查是否完成或出错
-//         if (status === 'completed' || status === 'error') {
-//           if (status === 'error') {
-//             // 显示错误信息
-//             const errorElement = document.querySelector('.error-message');
-//             if (errorElement && data.error) {
-//               errorElement.textContent = `錯誤: ${data.error}`;
-//               errorElement.style.display = 'block';
-//             }
-//           }
-
-//           // 延迟停止轮询
-//           setTimeout(function () {
-//             stopProgressPolling();
-//           }, 1000);
-//         }
-//       })
-//       .catch(error => {
-//         console.error('轮询进度时出错:', error);
-//       });
-//   }, 1000);
-// }
-
-// 停止轮询进度
-// function stopProgressPolling() {
-//   if (progressInterval) {
-//     clearInterval(progressInterval);
-//     progressInterval = null;
-//     console.log("停止進度輪詢");
-//   }
-// }
-
-// // 加强载入讯息
-// function enhanceLoadingMessage() {
-//   const loadingMessage = document.querySelector('.loading-message');
-//   if (!loadingMessage) return;
-
-//   // 如果已经有进度条，不需要重新创建
-//   if (loadingMessage.querySelector('.progress-container')) return;
-
-//   // 保留原始内容
-//   const originalContent = loadingMessage.innerHTML;
-
-//   // 更清晰的信息结构
-//   const messageContainer = document.createElement('div');
-//   messageContainer.style.textAlign = 'center';
-//   messageContainer.style.marginBottom = '10px';
-//   messageContainer.innerHTML = originalContent;
-
-//   // 创建进度条容器
-//   const progressContainer = document.createElement('div');
-//   progressContainer.className = 'progress-container mt-3';
-
-//   // 创建进度条 - 更明显的设计
-//   progressContainer.innerHTML = `
-//         <div class="progress" style="height: 20px;">
-//             <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
-//                 role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
-//         </div>
-//         <div id="progress-info" class="small mt-2" style="font-size: 0.9em;">準備中...</div>
-//     `;
-
-//   // 清空原有内容并添加新的结构
-//   loadingMessage.innerHTML = '';
-//   loadingMessage.appendChild(messageContainer);
-//   loadingMessage.appendChild(progressContainer);
-
-//   return loadingMessage;
-// }
-
-// // 更新进度条
-// function updateProgress(data) {
-//   const progressBar = document.getElementById('progress-bar');
-//   const progressInfo = document.getElementById('progress-info');
-
-//   if (!progressBar || !progressInfo) return data.status;
-
-//   // 更新进度条
-//   const percentage = data.percentage || 0;
-//   progressBar.style.width = `${percentage}%`;
-//   progressBar.textContent = `${percentage}%`;
-//   progressBar.setAttribute('aria-valuenow', percentage);
-
-//   // 根据状态更新颜色
-//   if (data.status === 'error') {
-//     progressBar.classList.remove('bg-primary', 'bg-success', 'bg-warning');
-//     progressBar.classList.add('bg-danger');
-//   } else if (data.status === 'completed') {
-//     progressBar.classList.remove('bg-primary', 'bg-danger', 'bg-warning');
-//     progressBar.classList.add('bg-success');
-//   } else if (percentage > 95) {
-//     // 接近完成时使用黄色
-//     progressBar.classList.remove('bg-primary', 'bg-danger', 'bg-success');
-//     progressBar.classList.add('bg-warning');
-//   } else {
-//     progressBar.classList.remove('bg-success', 'bg-danger', 'bg-warning');
-//     progressBar.classList.add('bg-primary');
-//   }
-
-//   // 更新进度信息
-//   let statusText = '';
-//   switch (data.status) {
-//     case 'idle': statusText = '準備中'; break;
-//     case 'running': statusText = '執行中'; break;
-//     case 'completed': statusText = '已完成'; break;
-//     case 'error': statusText = '發生錯誤'; break;
-//     default: statusText = data.status;
-//   }
-
-//   const timeSinceUpdate = data.time_since_update ? data.time_since_update : '';
-
-//   progressInfo.innerHTML = `
-//         ${statusText} - 完成: ${data.completed}/${data.total} 
-//         <br>公司: ${data.current_company || '無'} ${timeSinceUpdate}
-//     `;
-
-//   return data.status;
-// }
 
 // 确保在页面加载完成后绑定事件
 document.addEventListener('DOMContentLoaded', function () {
