@@ -65,40 +65,6 @@ class AdaptiveThrottler:
 # 初始化throttler
 throttler = AdaptiveThrottler(initial_workers=3)
 
-def get_cache_path(company_id, year, month):
-    """獲取快取文件路徑，使用子目錄組織緩存"""
-    # 創建按年份和公司分類的子目錄，減少單目錄下的文件數量
-    company_dir = os.path.join(CACHE_DIR, company_id)
-    year_dir = os.path.join(company_dir, str(year))
-    os.makedirs(year_dir, exist_ok=True)
-    return os.path.join(year_dir, f"{month:02d}.json")
-
-def validate_cache_data(data):
-    """驗證快取數據的有效性"""
-    required_fields = ['公司代號', '公司名稱', '當月營收', '上月營收', '去年當月營收']
-    return all(field in data for field in required_fields) and data.get('當月營收') != ''
-
-def save_to_file_cache(company_id, year, month, data):
-    """保存數據到快取"""
-    try:
-        cache_path = get_cache_path(company_id, year, month)
-        with open(cache_path, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False)
-    except Exception as e:
-        logger.error(f"保存快取時出錯: {e}")
-
-def load_from_file_cache(company_id, year, month):
-    """從快取加載數據"""
-    cache_path = get_cache_path(company_id, year, month)
-    if os.path.exists(cache_path):
-        try:
-            # 檢查快取文件是否過期（30天）
-            if time.time() - os.path.getmtime(cache_path) < 30 * 24 * 60 * 60:
-                with open(cache_path, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-        except Exception as e:
-            logger.error(f"讀取快取時出錯: {e}")
-    return None
 
 # 使用退避策略的請求函數
 def fetch_url(url, timeout=30):  # 增加默認超時時間
@@ -189,7 +155,7 @@ def process_company_data(args):
     update_company(company_id, year, month)
 
     data = (
-        load_valid_cache_or_db(company_id, year, month) or
+        load_valid_db(company_id, year, month) or
         fetch_and_process(company_id, year, month)
     )
 
@@ -197,26 +163,28 @@ def process_company_data(args):
     return data
 
 
-def load_valid_cache_or_db(company_id, year, month):
-    """先從快取，再從資料庫讀取資料"""
+def load_valid_db(company_id, year, month):
+    """
+    從資料庫讀取資料
     
-    # 檢查 JSON 快取檔案
-    cached = load_from_file_cache(company_id, year, month)
-    if cached and validate_cache_data(cached):
-        logger.info(f"✅ 使用快取檔案：{company_id} {year}/{month}")
-        throttler.report_success()
-        return cached
-
-    # 檢查 SQLite 資料庫
+    Args:
+        company_id (str): 公司代碼
+        year (int): 年份
+        month (int): 月份
+    
+    Returns:
+        dict or None: 有效的資料庫數據，若無效則返回 None
+    """
+    # 直接從資料庫讀取資料
     db_data = db.get_revenue_data(company_id, year, month)
-    if db_data and validate_cache_data(db_data):
-        logger.info(f"📦 使用資料庫快取：{company_id} {year}/{month}")
-        throttler.report_success()
+    
+    # 如果資料存在，直接返回
+    if db_data:
+        logger.info(f"📦 使用資料庫數據：{company_id} {year}/{month}")
         return db_data
-
-    # 快取與資料庫皆無效
+    
+    # 若無資料，返回 None
     return None
-
 
 def fetch_and_process(company_id, year, month):
     """無快取時，進行抓取 + 解析 + 入庫"""
@@ -236,7 +204,8 @@ def fetch_and_process(company_id, year, month):
         return None
 
     # ✅ 寫入快取與資料庫
-    save_to_file_cache(company_id, year, month, data)
+    # 移除 save_to_file_cache，改為直接寫入資料庫
+    # save_to_file_cache(company_id, year, month, data)
     db.insert_revenue_data(company_id, year, month, data)
     throttler.report_success()
 
