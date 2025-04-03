@@ -11,6 +11,43 @@ from flask_caching import Cache
 import traceback
 import threading
 
+
+"""
+多層緩存策略（Multi-Tier Caching Strategy）
+
+緩存層級與特性：
+
+1. 記憶體緩存 (In-Memory Cache)
+    - 位置：Flask-Caching (app.py)
+    - 存取速度：最快（毫秒級）
+    - 生命週期：應用運行期間
+    - 適用場景：頻繁、短期數據查詢
+    - 實現方法：cache.set() / cache.get()
+
+2. 文件系統快取 (File System Cache)
+    - 位置：utils/ cache
+    - 存取速度：中等
+    - 生命週期：持久保存
+    - 適用場景：跨會話但非高頻數據
+    - 實現方法：JSON序列化/反序列化
+
+3. 數據庫緩存 (Database Cache)
+    - 位置：utils/database.py
+    - 存取速度：相對較慢
+    - 生命週期：永久保存
+    - 適用場景：長期數據存儲
+    - 實現方法：SQLite持久化
+
+檢索優先順序：
+記憶體緩存 → 文件系統快取 → 數據庫緩存
+
+設計目的：
+- 提供多層次、靈活的數據緩存機制
+- 平衡性能、持久性和存儲成本
+- 支持不同使用場景的數據快取需求
+"""
+
+
 # 導入新的進度追蹤模組
 from utils.progress_tracker import get_status
 # 配置日誌
