@@ -1,8 +1,16 @@
 // main.js 頂部
 import ProgressTracker from './utils/progress-tracker.js';
+import ChartManager from './modules/chart-manager.js';
+
+
 let currentData = [];
-
-
+// 建立圖表管理器實例
+const chartManager = new ChartManager({
+  currentDataGetter: () => currentData,  // 提供函數來獲取最新的 currentData
+  chartContainer: 'chart-container',     // 圖表容器的 ID
+  chartSection: 'chart-section',         // 圖表區域的 ID
+  chartTitle: 'chart-title'              // 圖表標題的 ID
+});
 document.addEventListener('DOMContentLoaded', function () {
   // === 自動補全與標籤功能開始 ===
   if (!window.STOCK_LIST || !Array.isArray(window.STOCK_LIST)) {
@@ -205,20 +213,19 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 
   // 圖表按鈕點擊事件
-  const revenueChartBtn = document.getElementById('revenue-chart-btn');
+    const revenueChartBtn = document.getElementById('revenue-chart-btn');
   if (revenueChartBtn) {
     revenueChartBtn.addEventListener('click', function () {
       if (currentData.length > 0) {
-        fetchRevenueChartData();
+        chartManager.fetchRevenueChartData();  // 使用 chartManager
       }
     });
   }
-
   const growthRateChartBtn = document.getElementById('growth-rate-chart-btn');
   if (growthRateChartBtn) {
     growthRateChartBtn.addEventListener('click', function () {
       if (currentData.length > 0) {
-        fetchGrowthRateChartData();
+        chartManager.fetchGrowthRateChartData();  // 使用 chartManager
       }
     });
   }
@@ -227,7 +234,7 @@ document.addEventListener('DOMContentLoaded', function () {
   if (yearlyComparisonBtn) {
     yearlyComparisonBtn.addEventListener('click', function () {
       if (currentData.length > 0) {
-        showCompanySelectModal();
+        chartManager.showCompanySelectModal();  // 使用 chartManager
       }
     });
   }
@@ -395,265 +402,8 @@ function populateTable(data) {
   });
 }
 
-// 獲取營收圖表數據
-function fetchRevenueChartData() {
-  // 顯示圖表區域和加載訊息
-  document.getElementById('chart-section').style.display = 'block';
-  document.getElementById('chart-title').textContent = '公司營收比較圖';
 
-  // 發送 API 請求
-  fetch('/api/revenue-chart', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      data: currentData
-    }),
-  })
-    .then(response => response.json())
-    .then(data => {
-      // 繪製圖表
-      drawRevenueChart(data);
-    })
-    .catch(error => {
-      console.error('獲取圖表數據時出錯:', error);
-      alert('獲取圖表數據時出錯: ' + error.message);
-    });
-}
 
-// 繪製營收圖表
-function drawRevenueChart(data) {
-  Highcharts.chart('chart-container', {
-    chart: {
-      type: 'line'
-    },
-    title: {
-      text: '公司營收比較'
-    },
-    xAxis: {
-      categories: data.categories,
-      title: {
-        text: '年月'
-      }
-    },
-    yAxis: {
-      title: {
-        text: '營收'
-      },
-      labels: {
-        formatter: function () {
-          return Highcharts.numberFormat(this.value, 0, '.', ',');
-        }
-      }
-    },
-    tooltip: {
-      formatter: function () {
-        return '<b>' + this.series.name + '</b><br/>' +
-          this.x + ': ' + Highcharts.numberFormat(this.y, 0, '.', ',');
-      }
-    },
-    plotOptions: {
-      line: {
-        marker: {
-          enabled: true
-        }
-      }
-    },
-    series: data.series
-  });
-}
-
-// 獲取增長率圖表數據
-function fetchGrowthRateChartData() {
-  // 顯示圖表區域和加載訊息
-  document.getElementById('chart-section').style.display = 'block';
-  document.getElementById('chart-title').textContent = '公司營收增減率比較圖';
-
-  // 發送 API 請求
-  fetch('/api/growth-rate-chart', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      data: currentData
-    }),
-  })
-    .then(response => response.json())
-    .then(data => {
-      // 繪製圖表
-      drawGrowthRateChart(data);
-    })
-    .catch(error => {
-      console.error('獲取圖表數據時出錯:', error);
-      alert('獲取圖表數據時出錯: ' + error.message);
-    });
-}
-
-// 繪製增長率圖表
-function drawGrowthRateChart(data) {
-  Highcharts.chart('chart-container', {
-    chart: {
-      type: 'line'
-    },
-    title: {
-      text: '公司營收增減率比較'
-    },
-    xAxis: {
-      categories: data.categories,
-      title: {
-        text: '年月'
-      }
-    },
-    yAxis: {
-      title: {
-        text: '增減率 (%)'
-      },
-      labels: {
-        format: '{value}%'
-      }
-    },
-    tooltip: {
-      formatter: function () {
-        return '<b>' + this.series.name + '</b><br/>' +
-          this.x + ': ' + this.y + '%';
-      }
-    },
-    plotOptions: {
-      line: {
-        marker: {
-          enabled: true
-        }
-      }
-    },
-    series: data.series
-  });
-}
-
-// 顯示公司選擇對話框
-function showCompanySelectModal() {
-  // 獲取不重複的公司列表
-  const companies = [];
-  const companyIds = new Set();
-
-  currentData.forEach(item => {
-    if (!companyIds.has(item['公司代號'])) {
-      companyIds.add(item['公司代號']);
-      companies.push({
-        id: item['公司代號'],
-        name: item['公司名稱']
-      });
-    }
-  });
-
-  // 填充公司選擇列表
-  const companySelectList = document.getElementById('company-select-list');
-  companySelectList.innerHTML = '';
-
-  companies.forEach(company => {
-    const item = document.createElement('a');
-    item.href = '#';
-    item.className = 'list-group-item list-group-item-action';
-    item.textContent = `${company.id} ${company.name}`;
-    item.dataset.companyId = company.id;
-
-    item.addEventListener('click', function (e) {
-      e.preventDefault();
-      const companyId = this.dataset.companyId;
-      fetchYearlyComparisonData(companyId);
-
-      // 關閉對話框
-      const modal = bootstrap.Modal.getInstance(document.getElementById('company-select-modal'));
-      modal.hide();
-    });
-
-    companySelectList.appendChild(item);
-  });
-
-  // 顯示對話框
-  const modal = new bootstrap.Modal(document.getElementById('company-select-modal'));
-  modal.show();
-}
-
-// 獲取年度比較圖表數據
-function fetchYearlyComparisonData(companyId) {
-  // 顯示圖表區域和加載訊息
-  document.getElementById('chart-section').style.display = 'block';
-  document.getElementById('chart-title').textContent = `${companyId} 歷年營收比較圖`;
-
-  // 發送 API 請求
-  fetch('/api/yearly-comparison-chart', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      data: currentData,
-      company_id: companyId
-    }),
-  })
-    .then(response => response.json())
-    .then(data => {
-      // 繪製圖表
-      drawYearlyComparisonChart(data, companyId);
-    })
-    .catch(error => {
-      console.error('獲取圖表數據時出錯:', error);
-      alert('獲取圖表數據時出錯: ' + error.message);
-    });
-}
-
-// 繪製年度比較圖表
-function drawYearlyComparisonChart(data, companyId) {
-  // 從當前數據中找到公司名稱
-  let companyName = '';
-  for (const item of currentData) {
-    if (item['公司代號'] === companyId) {
-      companyName = item['公司名稱'];
-      break;
-    }
-  }
-
-  Highcharts.chart('chart-container', {
-    chart: {
-      type: 'line'
-    },
-    title: {
-      text: `${companyId} ${companyName} 歷年營收比較`
-    },
-    xAxis: {
-      categories: data.categories,
-      title: {
-        text: '月份'
-      }
-    },
-    yAxis: {
-      title: {
-        text: '營收'
-      },
-      labels: {
-        formatter: function () {
-          return Highcharts.numberFormat(this.value, 0, '.', ',');
-        }
-      }
-    },
-    tooltip: {
-      formatter: function () {
-        return '<b>' + this.series.name + '</b><br/>' +
-          this.x + '月: ' + Highcharts.numberFormat(this.y, 0, '.', ',');
-      }
-    },
-    plotOptions: {
-      line: {
-        marker: {
-          enabled: true
-        }
-      }
-    },
-    series: data.series
-  });
-}
 
 // 設置移動端導航功能
 function setupMobileNavigation() {
@@ -698,7 +448,7 @@ function setupMobileNavigation() {
       } else {
         // 如果圖表部分未顯示，且已有數據，則顯示營收圖表
         if (currentData.length > 0) {
-          fetchRevenueChartData();
+          chartManager.fetchRevenueChartData();  // 使用 chartManager
           // 短暫延遲後滾動到圖表區域（等待圖表加載）
           setTimeout(() => {
             const chartSection = document.getElementById('chart-section');
