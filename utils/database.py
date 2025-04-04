@@ -3,6 +3,7 @@ import os
 import json
 import logging
 import time
+from utils.timer_decorator import timer_decorator
 
 # 配置日誌
 logging.basicConfig(level=logging.INFO)
@@ -16,6 +17,7 @@ class Database:
         self._query_cache = {}
         self._cache_timeout = 600  # 10分鐘快取過期
     
+    @timer_decorator(log_level='info')
     def init_db(self):
         """初始化數據庫表"""
         try:
@@ -57,6 +59,7 @@ class Database:
         except sqlite3.Error as e:
             logger.error(f"初始化數據庫時出錯: {e}")
     
+    @timer_decorator(log_level='debug')
     def add_query_history(self, company_ids, year_range, month_range):
         """添加查詢歷史記錄"""
         try:
@@ -93,6 +96,7 @@ class Database:
         except sqlite3.Error as e:
             logger.error(f"添加查詢歷史時出錯: {e}")
 
+    @timer_decorator(log_level='debug')
     def get_query_history(self, force_refresh=False):
         """獲取查詢歷史記錄
         
@@ -136,6 +140,8 @@ class Database:
         except sqlite3.Error as e:
             logger.error(f"獲取查詢歷史時出錯: {e}")
             return []
+            
+    @timer_decorator(log_level='debug', log_args=True)
     def insert_revenue_data(self, company_id, year, month, data):
         """緩存公司數據"""
         try:
@@ -153,6 +159,7 @@ class Database:
         except sqlite3.Error as e:
             logger.error(f"緩存數據時出錯: {e}")
     
+    @timer_decorator(log_level='debug', log_args=True)
     def get_revenue_data(self, company_id, year, month, max_age_days=30):
         """獲取緩存的公司數據，延長數據有效期至30天"""
         # 生成快取鍵
@@ -184,6 +191,7 @@ class Database:
             logger.error(f"獲取緩存數據時出錯: {e}")
             return None
             
+    @timer_decorator(log_level='info')
     def clear_memory_cache(self):
         """清除記憶體快取"""
         self._query_cache.clear()

@@ -13,6 +13,8 @@ import threading
 from utils.database import Database
 # 導入新的進度追蹤器
 from utils.progress_tracker import initialize, update_company, increment, complete, error, get_status
+# 導入計時裝飾器
+from utils.timer_decorator import timer_decorator
 
 # 配置日誌
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -67,6 +69,7 @@ throttler = AdaptiveThrottler(initial_workers=3)
 
 
 # 使用退避策略的請求函數
+@timer_decorator(log_level='debug')
 def fetch_url(url, timeout=30):  # 增加默認超時時間
     """獲取URL內容，帶有重試機制、退避策略和更寬鬆的超時設置"""
     headers = {
@@ -108,6 +111,7 @@ def fetch_url(url, timeout=30):  # 增加默認超時時間
                 logger.error(f"請求失敗: {url}, 錯誤: {e}")
                 return None
 
+@timer_decorator(log_level='debug')
 def get_company_basic_data(company_id, year, month, html_content):
     """從HTML內容解析特定公司的數據"""
     if not html_content:
@@ -149,6 +153,7 @@ def get_company_basic_data(company_id, year, month, html_content):
 
     return {}
 
+@timer_decorator(log_level='info')
 def process_company_data(args):
     """統一入口：處理單一公司某月資料（含快取/爬取/入庫）"""
     company_id, year, month = args
@@ -163,6 +168,7 @@ def process_company_data(args):
     return data
 
 
+@timer_decorator(log_level='debug')
 def load_valid_db(company_id, year, month):
     """
     從資料庫讀取資料
@@ -186,6 +192,7 @@ def load_valid_db(company_id, year, month):
     # 若無資料，返回 None
     return None
 
+@timer_decorator(log_level='info', log_args=True)
 def fetch_and_process(company_id, year, month):
     """無快取時，進行抓取 + 解析 + 入庫"""
     url = f"https://mopsov.twse.com.tw/nas/t21/sii/t21sc03_{year}_{month}_0.html"
@@ -212,6 +219,7 @@ def fetch_and_process(company_id, year, month):
     return data
 
 # 修改 get_company_data 函数
+@timer_decorator(log_level='info', log_args=True)
 def get_company_data(company_ids, year_range, month_range):
     """并行抓取指定公司在指定年月范围内的数据"""
     # 初始化进度追踪
