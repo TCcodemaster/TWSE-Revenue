@@ -193,6 +193,43 @@
         min-height: 300px;
       }
     }
+
+    /* 提示訊息樣式 */
+    .popup {
+      display: none;
+      padding: 10px;
+      border-radius: 4px;
+      text-align: center;
+      margin: 10px 0;
+      font-size: 1.1em;
+      opacity: 0;
+      transform: translateY(-10px);
+      animation-fill-mode: forwards;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeOut {
+      from {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      to {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+    }
   </style>
 </head>
 
@@ -202,22 +239,14 @@
       <!-- 左側：表單區 -->
       <div class="left-panel">
         <div class="form-structor">
-          <!-- Flash Message 區塊 (若有訊息會顯示) -->
-          {% with messages = get_flashed_messages() %}
-          {% if messages %}
-          <div class="flash-message">
-            {% for message in messages %}
-            <p>{{ message }}</p>
-            {% endfor %}
-          </div>
-          {% endif %}
-          {% endwith %}
-          <!-- Log in 區塊 (預設顯示) -->
+          <!-- 登入區塊 -->
           <div class="login" id="login-section">
             <h2 class="form-title" id="login">Log in</h2>
-            <form method="post" action="{{ url_for('login') }}">
+            <form id="login-form" method="post" action="{{ url_for('login') }}">
+              <!-- 提示訊息放在使用者名稱上方 -->
+              <div id="popup-login" class="popup"></div>
               <div class="form-holder">
-                <input type="email" class="input" name="email" placeholder="Email" required />
+                <input type="text" class="input" name="username" placeholder="Username" required />
                 <input type="password" class="input" name="password" placeholder="Password" required />
               </div>
               <button type="submit" class="submit-btn">Log in</button>
@@ -227,10 +256,12 @@
               <a href="#" id="toSignUp">Sign up</a>
             </p>
           </div>
-          <!-- Sign up 區塊 (預設隱藏) -->
+          <!-- 註冊區塊 -->
           <div class="signup" id="signup-section">
             <h2 class="form-title" id="signup">Sign up</h2>
-            <form method="post" action="{{ url_for('register') }}">
+            <form id="register-form" method="post" action="{{ url_for('register') }}">
+              <!-- 提示訊息放在使用者名稱上方 -->
+              <div id="popup-register" class="popup"></div>
               <div class="form-holder">
                 <input type="text" class="input" name="username" placeholder="Name" required />
                 <input type="email" class="input" name="email" placeholder="Email" required />
@@ -249,27 +280,102 @@
       <!-- 右側：動畫背景 -->
       <div class="right-panel">
         <svg id="animated-bg" viewBox="0 0 800 800" preserveAspectRatio="xMidYMid slice">
-          <!-- 固定曲線 1 -->
           <path id="line1" d="M0,400 C200,300 600,500 800,400" stroke="#4AE0D5" stroke-width="3" fill="none" />
-          <!-- 固定曲線 2 -->
           <path id="line2" d="M0,500 C200,400 600,600 800,500" stroke="#3498db" stroke-width="3" fill="none" />
-          <!-- 固定曲線 3 -->
           <path id="line3" d="M0,600 C200,500 600,700 800,600" stroke="#e74c3c" stroke-width="3" fill="none" />
         </svg>
       </div>
     </div>
   </div>
-
   <!-- 引入 anime.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
   <script>
-    // 取得 DOM
+    // 提示訊息函數（根據表單不同使用不同 id）
+    // 提示訊息函數，加入淡入動畫
+    function displayPopup(popupId, message, isSuccess) {
+      const popup = document.getElementById(popupId);
+      popup.style.display = 'block';
+      popup.style.backgroundColor = isSuccess ? '#4caf50' : '#f44336';
+      popup.style.color = '#fff';
+      popup.textContent = message;
+      // 觸發淡入動畫
+      popup.style.animation = 'fadeIn 0.3s forwards';
+    }
+    // 淡出提示訊息
+    function closePopup(popupId) {
+      const popup = document.getElementById(popupId);
+      // 播放淡出動畫，動畫結束後隱藏元素
+      popup.style.animation = 'fadeOut 0.6s forwards';
+      setTimeout(() => {
+        popup.style.display = 'none';
+      }, 300);
+    }
+
+    // 綁定登入表單提交事件
+    const loginForm = document.getElementById('login-form');
+    loginForm.addEventListener('submit', function (event) {
+      event.preventDefault();
+      const formData = new FormData(loginForm);
+      fetch(loginForm.action, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            displayPopup('popup-login', data.message, true);
+            setTimeout(function () {
+              window.location.href = data.url;
+            }, 700);
+          } else {
+            displayPopup('popup-login', data.message, false);
+            setTimeout(function () {
+              closePopup('popup-login');
+            }, 1000);
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          displayPopup('popup-login', "An error occurred. Please try again later.", false);
+        });
+    });
+
+    // 綁定註冊表單提交事件
+    const registerForm = document.getElementById('register-form');
+    registerForm.addEventListener('submit', function (event) {
+      event.preventDefault();
+      const formData = new FormData(registerForm);
+      fetch(registerForm.action, {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            displayPopup('popup-register', data.message, true);
+            setTimeout(function () {
+              window.location.href = data.url;
+            }, 500);
+          } else {
+            displayPopup('popup-register', data.message, false);
+            setTimeout(function () {
+              closePopup('popup-register');
+            }, 1000);
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          displayPopup('popup-register', "An error occurred. Please try again later.", false);
+        });
+    });
+    // 切換登入與註冊區塊
     const loginSection = document.getElementById('login-section');
     const signupSection = document.getElementById('signup-section');
     const toSignUp = document.getElementById('toSignUp');
     const toLogIn = document.getElementById('toLogIn');
 
-    // 點擊 "Sign up" 連結 => 顯示註冊區塊, 隱藏登入區塊
     toSignUp.addEventListener('click', (e) => {
       e.preventDefault();
       loginSection.style.opacity = '0';
@@ -280,7 +386,6 @@
       signupSection.style.pointerEvents = 'auto';
     });
 
-    // 點擊 "Log in" 連結 => 顯示登入區塊, 隱藏註冊區塊
     toLogIn.addEventListener('click', (e) => {
       e.preventDefault();
       signupSection.style.opacity = '0';

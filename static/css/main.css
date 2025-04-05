@@ -1,71 +1,133 @@
-/* 自動補全和標籤樣式 */
+/* 自動補全和標籤樣式 - 優化版 */
 .company-search-container {
     position: relative;
-}
-
-.autocomplete-list {
+  }
+  
+  /* 自動補全下拉列表樣式優化 */
+  .autocomplete-list {
     position: absolute;
     width: 100%;
     max-height: 300px;
     overflow-y: auto;
     z-index: 1000;
     background: white;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-}
-
-.autocomplete-item {
-    padding: 8px 12px;
+    border: 1px solid var(--neutral-medium, #dee2e6);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    margin-top: 5px;
+    transition: all 0.2s ease;
+  }
+  
+  /* 自動補全項目樣式 */
+  .autocomplete-item {
+    padding: 10px 15px;
     cursor: pointer;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--neutral-medium, #f0f0f0);
     display: flex;
     justify-content: space-between;
     align-items: center;
-}
-
-.autocomplete-item:hover {
-    background-color: #f8f9fa;
-}
-
-.company-code {
-    font-weight: bold;
-    margin-right: 8px;
-}
-
-.company-industry {
-    color: #6c757d;
+    transition: background-color 0.2s ease, transform 0.1s ease;
+  }
+  
+  .autocomplete-item:last-child {
+    border-bottom: none;
+  }
+  
+  .autocomplete-item:hover {
+    background-color: rgba(75, 108, 183, 0.05);
+    transform: translateX(3px);
+  }
+  
+  /* 公司代碼樣式 */
+  .company-code {
+    font-weight: 600;
+    margin-right: 12px;
+    color: var(--primary, #4b6cb7);
+  }
+  
+  /* 公司行業樣式 */
+  .company-industry {
+    color: var(--neutral-dark, #6c757d);
     font-size: 0.85em;
     margin-left: auto;
-}
-
-.autocomplete-more-info {
-    padding: 8px 12px;
+    background-color: rgba(75, 108, 183, 0.08);
+    padding: 2px 8px;
+    border-radius: 12px;
+  }
+  
+  /* 更多資訊提示樣式 */
+  .autocomplete-more-info {
+    padding: 10px 12px;
     font-size: 0.85em;
-    color: #6c757d;
-    background-color: #f8f9fa;
+    color: var(--neutral-dark, #6c757d);
+    background-color: rgba(75, 108, 183, 0.04);
     text-align: center;
-}
-
-.company-tag {
+    border-top: 1px solid var(--neutral-medium, #eee);
+    font-style: italic;
+  }
+  
+  /* 公司標籤優化樣式 */
+  .company-tag {
     display: inline-flex;
     align-items: center;
-    margin: 4px;
-    padding: 5px 10px;
-    background-color: #e9ecef;
+    margin: 5px;
+    padding: 6px 14px 6px 10px;
+    background-color: var(--primary-light, #6a85b6);
+    color: white;
     border-radius: 20px;
     font-size: 0.9em;
-}
-
-.company-tag-industry {
-    color: #6c757d;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(75, 108, 183, 0.2);
+  }
+  
+  .company-tag:hover {
+    background-color: var(--primary, #4b6cb7);
+    box-shadow: 0 3px 6px rgba(75, 108, 183, 0.3);
+    transform: translateY(-1px);
+  }
+  
+  /* 公司標籤內的行業資訊 */
+  .company-tag-industry {
+    color: rgba(255, 255, 255, 0.8);
     font-size: 0.75em;
-    margin: 0 5px;
-}
-
-.remove-btn {
-    margin-left: 5px;
+    margin: 0 6px;
+    padding: 1px 6px;
+    background-color: rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+  }
+  
+  /* 移除按鈕優化 */
+  .remove-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    margin-left: 8px;
     cursor: pointer;
     font-weight: bold;
-    color: #dc3545;
-}
+    color: white;
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    font-size: 12px;
+    transition: all 0.2s ease;
+  }
+  
+  .remove-btn:hover {
+    background-color: rgba(255, 255, 255, 0.4);
+    transform: scale(1.1);
+  }
+  
+  /* 輸入框聚焦樣式優化 */
+  #company-ids:focus {
+    border-color: var(--primary-light, #6a85b6);
+    box-shadow: 0 0 0 0.2rem rgba(75, 108, 183, 0.25);
+  }
+  
+  /* 無結果提示樣式 */
+  .no-results {
+    padding: 15px;
+    text-align: center;
+    color: var(--neutral-dark, #6c757d);
+    font-style: italic;
+  }

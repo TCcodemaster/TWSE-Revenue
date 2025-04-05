@@ -7,14 +7,14 @@ services:
       - "8082:8082"
 
     # ⬇️【開發階段使用：Bind Mount】可直接存取本機 ./data 和 ./cache 資料夾
-    # volumes:
-    #   - ./data:/app/data         # ✅ 本機的 ./data 對應容器內的 /app/data
-    #   - ./cache:/app/cache       # ✅ 本機的 ./cache 對應容器內的 /app/cache
+    volumes:
+      - ./data:/app/data # ✅ 本機的 ./data 對應容器內的 /app/data
+      - ./cache:/app/cache # ✅ 本機的 ./cache 對應容器內的 /app/cache
 
     # ⬇️【Render 部署時】請註解上面兩行 Bind Mount，改用命名卷（Persistent Disk）
-    volumes:
-      - db_data:/app/data # ✅ Render 將 Persistent Disk 掛載在 /app/data
-      - cache_data:/app/cache # ✅ 如果也要快取快照儲存，可加上這一個（可選）
+    # volumes:
+    #   - db_data:/app/data # ✅ Render 將 Persistent Disk 掛載在 /app/data
+    #   - cache_data:/app/cache # ✅ 如果也要快取快照儲存，可加上這一個（可選）
 
     environment:
       - FLASK_ENV=production
@@ -49,8 +49,8 @@ services:
       gunicorn --workers ${WORKERS:-2} --worker-class gevent --worker-connections 1000 --timeout ${TIMEOUT:-120} --max-requests ${MAX_REQUESTS:-1000} --max-requests-jitter ${MAX_REQUESTS_JITTER:-50} --bind 0.0.0.0:8082 --access-logfile - --error-logfile - app:app
 
 # ⬇️【Render 部署用的 Volume 定義】開發時可先註解掉
-volumes:
-  db_data:
-    driver: local
-  cache_data:
-    driver: local
+# volumes:
+#   db_data:
+#     driver: local
+#   cache_data:
+#     driver: local

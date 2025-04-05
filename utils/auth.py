@@ -24,15 +24,72 @@ def verify_password(stored_password, provided_password):
     pw_hash = hashlib.pbkdf2_hmac('sha256', provided_password.encode('utf-8'), salt, 100000)
     return pw_hash == stored_pw_hash
 
-def register_user(username, email, password):
-    """註冊新用戶：檢查是否已存在，若無則加密密碼並儲存用戶資料"""
+def login_user(username, password):
+    """驗證用戶登入
+    
+    Args:
+        username (str): 用戶名
+        password (str): 明文密碼
+        
+    Returns:
+        tuple: (成功與否, 用戶ID或錯誤消息)
+    """
     try:
-        # 連接到資料庫並檢查是否已存在相同的 email
+        # 從數據庫尋找指定用戶名的用戶
+        with sqlite3.connect(db.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+            user = cursor.fetchone()
+        
+        if not user:
+            return False, "用戶名或密碼不正確"
+        
+        # 檢查密碼
+        if not verify_password(user['password_hash'], password):
+            return False, "用戶名或密碼不正確"
+        
+        # 更新登入時間
+        db.update_user_login(user['id'])
+        
+        # 將用戶ID存入session
+        session['user_id'] = user['id']
+        session['username'] = user['username']
+        
+        return True, user['id']
+    except Exception as e:
+        logger.error(f"用戶登入時出錯: {e}")
+        return False, "登入過程中出現錯誤，請稍後再試"
+
+def register_user(username, email, password):
+    """註冊新用戶
+    
+    Args:
+        username (str): 用戶名
+        email (str): 電子郵件
+        password (str): 明文密碼
+        
+    Returns:
+        tuple: (成功與否, 用戶ID或錯誤消息)
+    """
+    try:
+        # 檢查用戶輸入
+        if not username or not email or not password:
+            return False, "所有欄位都必須填寫"
+        
+        # 連接到資料庫並檢查是否已存在相同的 email 或 username
         with sqlite3.connect(db.db_path) as conn:
             cursor = conn.cursor()
+            
+            # 檢查電子郵件是否已被註冊
             cursor.execute("SELECT id FROM users WHERE email = ?", (email,))
             if cursor.fetchone():
                 return False, "此電子郵件已被註冊"
+            
+            # 檢查用戶名是否已被使用
+            cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
+            if cursor.fetchone():
+                return False, "此用戶名已被使用"
             
             # 加密密碼
             password_hash = hash_password(password)
@@ -56,31 +113,8 @@ def register_user(username, email, password):
         logger.error(f"註冊用戶時出錯: {e}")
         return False, str(e)
 
-def login_user(email, password):
-    """用戶登入：根據 email 檢索用戶，驗證密碼，更新最後登入時間並設置 session"""
-    try:
-        with sqlite3.connect(db.db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            cursor.execute("SELECT id, password_hash FROM users WHERE email = ?", (email,))
-            user = cursor.fetchone()
-            
-            if not user:
-                return False, "用戶不存在"
-            
-            if not verify_password(user['password_hash'], password):
-                return False, "密碼錯誤"
-            
-            # 更新最後登入時間
-            cursor.execute(
-                "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?",
-                (user['id'],)
-            )
-            conn.commit()
-            
-            # 將用戶ID保存到 session 中
-            session['user_id'] = user['id']
-            return True, user['id']
-    except Exception as e:
-        logger.error(f"用戶登入時出錯: {e}")
-        return False, str(e)
+def logout_user():
+    """登出用戶"""
+    session.pop('user_id', None)
+    session.pop('username', None)
+    return True

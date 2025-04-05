@@ -12,7 +12,8 @@ import traceback
 import threading
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from utils.auth import login_user, register_user
-
+# 登入路由，處理 GET 與 POST 請求
+from flask import jsonify, request
 
 """
 多層緩存策略（Multi-Tier Caching Strategy）
@@ -44,50 +45,65 @@ from utils.auth import login_user, register_user
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # 用於加密 session
 
-# 登入路由，處理 GET 與 POST 請求
+
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        # 從表單取得使用者輸入的電子郵件與密碼
-        email = request.form.get('email')
+        username = request.form.get('username')
         password = request.form.get('password')
         
-        # 呼叫 auth.py 中的 login_user 進行驗證
-        success, result = login_user(email, password)
+        success, result = login_user(username, password)
         if success:
-            flash("登入成功！")
+            message = "登入成功！"
+            flash(message, 'success')
+            # 如果是 AJAX 請求（或 accept JSON 較高），返回 JSON
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or \
+               request.accept_mimetypes['application/json'] >= request.accept_mimetypes['text/html']:
+                return jsonify(success=True, message=message, url=url_for('index'))
+            # 傳統提交則直接跳轉
             return redirect(url_for('index'))
         else:
-            flash(result)
-            return render_template('login.html', error=result)
-    # GET 請求，直接顯示登入頁面
+            message = result
+            flash(message, 'error')
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or \
+               request.accept_mimetypes['application/json'] >= request.accept_mimetypes['text/html']:
+                return jsonify(success=False, message=message)
+            return render_template('login.html', error=message)
     return render_template('login.html')
 
-# 註冊路由，處理 GET 與 POST 請求
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        # 取得表單資料
         username = request.form.get('username')
         email = request.form.get('email')
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
         
-        # 檢查兩次密碼輸入是否一致
         if password != confirm_password:
             error_msg = "兩次輸入的密碼不一致"
-            flash(error_msg)
+            flash(error_msg, 'error')
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or \
+               request.accept_mimetypes['application/json'] >= request.accept_mimetypes['text/html']:
+                return jsonify(success=False, message=error_msg)
             return render_template('login.html', error=error_msg)
         
-        # 呼叫 auth.py 中的 register_user 進行用戶註冊
         success, result = register_user(username, email, password)
         if success:
-            flash("註冊成功，請登入")
+            message = "註冊成功，請登入"
+            flash(message, 'success')
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or \
+               request.accept_mimetypes['application/json'] >= request.accept_mimetypes['text/html']:
+                return jsonify(success=True, message=message, url=url_for('login'))
             return redirect(url_for('login'))
         else:
-            flash(result)
-            return render_template('login.html', error=result)
-    # GET 請求，返回註冊頁面
+            message = result
+            flash(message, 'error')
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or \
+               request.accept_mimetypes['application/json'] >= request.accept_mimetypes['text/html']:
+                return jsonify(success=False, message=message)
+            return render_template('login.html', error=message)
     return render_template('login.html')
 
 
@@ -165,6 +181,7 @@ def startup():
     return render_template('startup.html')
 
 # 首頁路由
+# 首頁路由
 @app.route('/')
 def index():
     # 如果系統尚未初始化，跳轉到啟動頁面
@@ -177,10 +194,13 @@ def index():
     if system_status['is_initializing']:
         return redirect(url_for('startup'))
     
-    # 系統已經初始化完成，從數據庫讀取查詢歷史
-    query_history = db.get_query_history()
+    # 檢查用戶是否已登入
+    if 'user_id' not in session:
+        return redirect(url_for('login'))
+    
+    # 系統已經初始化完成，從數據庫讀取當前登入用戶的查詢歷史
+    query_history = db.get_query_history(user_id=session.get('user_id'))
     return render_template('index.html', query_history=query_history)
-
 # 保活 API 端點
 @app.route('/api/keep-alive', methods=['GET'])
 def keep_alive():
@@ -377,7 +397,8 @@ def get_company_data_api():
             db.add_query_history(
                 data.get('company_ids', ''),
                 data.get('year_range', ''),
-                data.get('month_range', '')
+                data.get('month_range', ''),
+                user_id=session.get('user_id')  # 添加用戶 ID
             )
 
         # 排序并返回数据

@@ -414,3 +414,5 @@ class Database:
         """清除記憶體快取"""
         self._query_cache.clear()
         logger.info("記憶體快取已清除")
+        
+    

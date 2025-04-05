@@ -1,11 +1,52 @@
+/* 全域樣式設定 */
+:root {
+  /* 專業柔和色彩系統 */
+  --primary: #4b6cb7;
+  --primary-light: #6a85b6;
+  --primary-dark: #3a5a9a;
+  
+  --info: #5bc0de;
+  --info-light: #7dcde8;
+  --info-dark: #31b0d5;
+  
+  --success: #5cb85c;
+  --success-light: #7aca7a;
+  --success-dark: #449d44;
+  
+  --neutral-bg: #f8f9fa;
+  --neutral-border: #dee2e6;
+}
+/* 自定義邊框顏色 */
+.border-custom-info {
+  border-color: hsl(11deg 100% 62.2% / 45%)!important;
+}
+
+.btn-outline-custom-info {
+  color: hsl(11deg 100% 62.2% / 45%);
+  border-color: hsl(11deg 100% 62.2% / 45%);
+  background-color: transparent;
+}
+body {
+  background-color: var(--neutral-bg);
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+/* 漸層背景標題 - 改為柔和專業色調 */
+.bg-gradient-primary {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+}
+
+.bg-gradient-info {
+  background: linear-gradient(135deg, var(--info) 0%, var(--info-dark) 100%);
+}
+
+.bg-gradient-success {
+  background: linear-gradient(135deg, var(--success) 0%, var(--success-dark) 100%);
+}
+
 /* 包裝輸入框和自動完成列表的容器 */
 .company-search-container {
   position: relative;
-  width: 100%;
-}
-
-/* 輸入框樣式 */
-#company-ids {
   width: 100%;
 }
 
@@ -15,60 +56,71 @@
   top: 100%; /* 定位在輸入框下方 */
   left: 0;
   background: white;
-  border: 1px solid #ddd;
-  border-top: none; /* 移除上邊框，與輸入框連接 */
-  max-height: 200px;
+  border-radius: 0 0 8px 8px;
+  border: 1px solid var(--neutral-border);
+  border-top: none;
+  max-height: 250px;
   overflow-y: auto;
-  width: 100%; /* 確保與輸入框同寬 */
+  width: 100%;
   z-index: 1000;
-  box-sizing: border-box; /* 確保邊框包含在寬度內 */
+  box-sizing: border-box;
 }
 
 .autocomplete-item {
-  padding: 10px;
+  padding: 12px 15px;
   cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  transition: all 0.2s ease;
+}
+
+.autocomplete-item:last-child {
+  border-bottom: none;
+  border-radius: 0 0 8px 8px;
 }
 
 .autocomplete-item:hover {
-  background: #f0f0f0;
+  background: rgba(75, 108, 183, 0.05); /* 使用主色的淡色背景 */
 }
-/* 公司標籤樣式 */
+
+/* 公司標籤樣式 - 現代化設計 */
 .company-tag {
   display: inline-flex;
   align-items: center;
-  background-color: #0047b3; /* 主藍色，完全不透明 */
+  background-color: var(--primary); /* 使用柔和主色 */
   color: white;
-  border-radius: 16px;
-  padding: 6px 10px;
-  margin: 4px;
+  border-radius: 20px;
+  padding: 6px 14px;
+  margin: 5px;
   font-size: 14px;
   cursor: default;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .company-tag:hover {
-  background: #4a7dcf; /* 懸停時的深藍色，完全不透明 */
+  background: var(--primary-dark);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
 }
 
-/* 移除按鈕樣式 (iPhone風格小叉) */
+/* 移除按鈕樣式 */
 .remove-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
-  background-color: rgb(238, 98, 98); /* 完全不透明的紅色 */
+  background-color: rgba(255, 255, 255, 0.3);
   color: white;
   font-size: 12px;
-  margin-left: 6px;
+  margin-left: 8px;
   cursor: pointer;
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
 }
 
 .remove-btn:hover {
-  background-color: rgb(255, 128, 128); /* 懸停時的亮紅色 */
+  background-color: rgba(255, 255, 255, 0.5);
 }
-/* 添加到您的 CSS 檔案 */
 
 /* 歷史記錄摺疊按鈕樣式 */
 .btn[data-bs-toggle="collapse"] {
@@ -76,34 +128,115 @@
   align-items: center;
   gap: 5px;
   transition: all 0.3s ease;
-}
-
-.btn[data-bs-toggle="collapse"]:hover {
-  background-color: #aad3fc;
-}
-
-.collapse-icon {
-  transition: transform 0.3s ease;
+  border-radius: 20px;
 }
 
 /* 歷史記錄清單樣式 */
+.history-list,
 .history-list-more {
-  box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.05);
-  border-top: 1px solid #f0f0f0;
+  border-radius: 8px;
 }
 
 /* 為歷史項目添加視覺效果 */
 .history-item {
-  transition: background-color 0.2s ease;
+  transition: all 0.25s ease;
   border-left: 3px solid transparent;
+  border-radius: 0;
+  position: relative;
+}
+
+.history-item:first-child {
+  border-top-left-radius: 8px;
+  border-top-right-radius: 8px;
+}
+
+.history-item:last-child {
+  border-bottom-left-radius: 8px;
+  border-bottom-right-radius: 8px;
 }
 
 .history-item:hover {
-  border-left-color: #007bff;
-  background-color: #f8f9fa;
+  background-color: rgba(75, 108, 183, 0.05);
+  transform: translateX(2px);
+}
+
+/* 添加漸變邊框效果 */
+.history-item:hover::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(to bottom, var(--primary), var(--primary-light));
+}
+
+/* 卡片陰影和圓角 */
+.card {
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.card:hover {
+  box-shadow: 0 8px 15px rgba(75, 108, 183, 0.1) !important; /* 使用主色調的陰影 */
+}
+
+/* 按鈕懸停效果 */
+.btn {
+  transition: all 0.3s ease;
+}
+
+.btn-primary {
+  background-color: var(--primary);
+  border-color: var(--primary-dark);
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(75, 108, 183, 0.3) !important; /* 使用主色調的陰影 */
+}
+
+/* 表格樣式美化 */
+.table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.table thead th {
+  border-top: none;
+  font-weight: 600;
+  color: #495057;
 }
 
 /* 確保摺疊動畫平滑 */
 .collapse {
   transition: height 0.3s ease;
+}
+
+/* 新增 border-soft-primary 類別，用於歷史記錄項目邊框 */
+.border-soft-primary {
+  border-color: var(--primary-light) !important;
+}
+
+/* 覆蓋 Bootstrap 原生類別 */
+.bg-primary, .btn-primary {
+  background-color: var(--primary) !important;
+}
+
+.bg-info, .btn-info {
+  background-color: var(--info) !important;
+}
+
+.bg-success, .btn-success {
+  background-color: var(--success) !important;
+}
+
+.border-primary {
+  border-color: var(--primary) !important;
+}
+
+/* 自定義背景懸停效果 */
+.bg-hover-light:hover {
+  background-color: rgba(75, 108, 183, 0.05);
 }
