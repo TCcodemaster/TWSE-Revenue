@@ -106,6 +106,19 @@
           <li class="nav-item">
             <a class="nav-link" href="https://mops.twse.com.tw/mops/web/index" target="_blank">TWSE 官網</a>
           </li>
+
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown"
+              aria-expanded="false">
+              <i class="fas fa-user"></i> 我的帳戶
+            </a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('login') }}">登入</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="{{ url_for('register') }}">註冊</a>
+          </li>
           <li class="nav-item">
             <button id="install-app" class="nav-link btn btn-link install-button" title="安裝應用程式">
               <i class="fas fa-download"></i> 安裝應用

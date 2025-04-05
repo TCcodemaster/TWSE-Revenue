@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Login & Sign up</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="https://fonts.googleapis.com/css?family=Fira+Sans" rel="stylesheet">
+  <style>
+    /* ========== 全域重置 & 基本設定 ========== */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      font-family: "Fira Sans", Helvetica, Arial, sans-serif;
+      background-color: #E1E8EE;
+    }
+
+    /* ========== 外層容器：置中 & 固定最大寬度 ========== */
+    .outer-container {
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .inner-wrapper {
+      display: flex;
+      max-width: 900px;
+      width: 100%;
+      background-color: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    /* ========== 左側：深色背景 (放登入/註冊表單) ========== */
+    .left-panel {
+      flex: 1 1 50%;
+      background-color: #222;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+
+    /* ========== 右側：使用 anime.js 動畫背景 ========== */
+    .right-panel {
+      flex: 1 1 50%;
+      position: relative;
+      background-color: #1E1E2F;
+      overflow: hidden;
+    }
+
+    /* 新增的 SVG 動畫容器 */
+    #animated-bg {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 90%;
+      height: auto;
+    }
+
+    /* ========== 表單容器 ========== */
+    .form-structor {
+      width: 100%;
+      max-width: 350px;
+      color: #fff;
+    }
+
+    /* ========== 登入 / 註冊 區塊 ========== */
+    .login,
+    .signup {
+      background-color: #222;
+      border-radius: 15px;
+      padding: 20px;
+      margin-bottom: 20px;
+      transition: all 0.4s ease;
+    }
+
+    /* 預設顯示登入、隱藏註冊 */
+    .login {
+      opacity: 1;
+      height: auto;
+      pointer-events: auto;
+    }
+
+    .signup {
+      opacity: 0;
+      height: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    /* ========== 標題 ========== */
+    .form-title {
+      font-size: 1.6em;
+      text-align: center;
+      margin-bottom: 15px;
+      cursor: pointer;
+    }
+
+    .form-title span {
+      font-size: 0.6em;
+      opacity: 0.8;
+      margin-right: 5px;
+    }
+
+    /* ========== 表單本體 ========== */
+    .form-holder {
+      background-color: #fff;
+      border-radius: 8px;
+      padding: 10px;
+      margin-top: 10px;
+    }
+
+    .input {
+      display: block;
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 10px;
+      border: none;
+      border-bottom: 1px solid #ddd;
+      font-size: 14px;
+      outline: none;
+    }
+
+    /* ========== 按鈕 ========== */
+    .submit-btn {
+      display: block;
+      width: 100%;
+      margin-top: 10px;
+      padding: 12px;
+      font-size: 14px;
+      font-weight: bold;
+      text-align: center;
+      color: #fff;
+      background-color: rgba(0, 0, 0, 0.5);
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    .submit-btn:hover {
+      background-color: rgba(0, 0, 0, 0.8);
+    }
+
+    /* 文字連結提示區 */
+    .toggle-text {
+      text-align: center;
+      margin-top: 10px;
+      font-size: 0.9em;
+    }
+
+    .toggle-text a {
+      color: #4AE0D5;
+      text-decoration: none;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    /* ========== 顯示 Flash Message ========== */
+    .flash-message {
+      text-align: center;
+      margin-bottom: 10px;
+      color: #ffdddd;
+      background-color: #b22222;
+      padding: 8px;
+      border-radius: 4px;
+      font-size: 0.9em;
+    }
+
+    /* ========== RWD：小螢幕上下排 ========== */
+    @media (max-width: 768px) {
+      .inner-wrapper {
+        flex-direction: column;
+        border-radius: 0;
+      }
+
+      .left-panel,
+      .right-panel {
+        width: 100%;
+        flex: none;
+        min-height: 300px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="outer-container">
+    <div class="inner-wrapper">
+      <!-- 左側：表單區 -->
+      <div class="left-panel">
+        <div class="form-structor">
+          <!-- Flash Message 區塊 (若有訊息會顯示) -->
+          {% with messages = get_flashed_messages() %}
+          {% if messages %}
+          <div class="flash-message">
+            {% for message in messages %}
+            <p>{{ message }}</p>
+            {% endfor %}
+          </div>
+          {% endif %}
+          {% endwith %}
+          <!-- Log in 區塊 (預設顯示) -->
+          <div class="login" id="login-section">
+            <h2 class="form-title" id="login">Log in</h2>
+            <form method="post" action="{{ url_for('login') }}">
+              <div class="form-holder">
+                <input type="email" class="input" name="email" placeholder="Email" required />
+                <input type="password" class="input" name="password" placeholder="Password" required />
+              </div>
+              <button type="submit" class="submit-btn">Log in</button>
+            </form>
+            <p class="toggle-text">
+              Don’t have an account?
+              <a href="#" id="toSignUp">Sign up</a>
+            </p>
+          </div>
+          <!-- Sign up 區塊 (預設隱藏) -->
+          <div class="signup" id="signup-section">
+            <h2 class="form-title" id="signup">Sign up</h2>
+            <form method="post" action="{{ url_for('register') }}">
+              <div class="form-holder">
+                <input type="text" class="input" name="username" placeholder="Name" required />
+                <input type="email" class="input" name="email" placeholder="Email" required />
+                <input type="password" class="input" name="password" placeholder="Password" required />
+                <input type="password" class="input" name="confirm_password" placeholder="Confirm Password" required />
+              </div>
+              <button type="submit" class="submit-btn">Sign up</button>
+            </form>
+            <p class="toggle-text">
+              Already have an account?
+              <a href="#" id="toLogIn">Log in</a>
+            </p>
+          </div>
+        </div>
+      </div>
+      <!-- 右側：動畫背景 -->
+      <div class="right-panel">
+        <svg id="animated-bg" viewBox="0 0 800 800" preserveAspectRatio="xMidYMid slice">
+          <!-- 固定曲線 1 -->
+          <path id="line1" d="M0,400 C200,300 600,500 800,400" stroke="#4AE0D5" stroke-width="3" fill="none" />
+          <!-- 固定曲線 2 -->
+          <path id="line2" d="M0,500 C200,400 600,600 800,500" stroke="#3498db" stroke-width="3" fill="none" />
+          <!-- 固定曲線 3 -->
+          <path id="line3" d="M0,600 C200,500 600,700 800,600" stroke="#e74c3c" stroke-width="3" fill="none" />
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- 引入 anime.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+  <script>
+    // 取得 DOM
+    const loginSection = document.getElementById('login-section');
+    const signupSection = document.getElementById('signup-section');
+    const toSignUp = document.getElementById('toSignUp');
+    const toLogIn = document.getElementById('toLogIn');
+
+    // 點擊 "Sign up" 連結 => 顯示註冊區塊, 隱藏登入區塊
+    toSignUp.addEventListener('click', (e) => {
+      e.preventDefault();
+      loginSection.style.opacity = '0';
+      loginSection.style.height = '0';
+      loginSection.style.pointerEvents = 'none';
+      signupSection.style.opacity = '1';
+      signupSection.style.height = 'auto';
+      signupSection.style.pointerEvents = 'auto';
+    });
+
+    // 點擊 "Log in" 連結 => 顯示登入區塊, 隱藏註冊區塊
+    toLogIn.addEventListener('click', (e) => {
+      e.preventDefault();
+      signupSection.style.opacity = '0';
+      signupSection.style.height = '0';
+      signupSection.style.pointerEvents = 'none';
+      loginSection.style.opacity = '1';
+      loginSection.style.height = 'auto';
+      loginSection.style.pointerEvents = 'auto';
+    });
+
+    // Anime.js 動畫設定
+    const paths = ['#line1', '#line2', '#line3'];
+    paths.forEach((selector, index) => {
+      anime({
+        targets: selector,
+        strokeDashoffset: [anime.setDashoffset, 0],
+        easing: 'easeInOutSine',
+        duration: 3000 + index * 500,
+        delay: 500,
+        direction: 'alternate',
+        loop: true
+      });
+    });
+  </script>
+</body>
+
+</html>

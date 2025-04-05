@@ -10,6 +10,8 @@ import time
 from flask_caching import Cache
 import traceback
 import threading
+from flask import Flask, render_template, request, redirect, url_for, flash, session
+from utils.auth import login_user, register_user
 
 
 """
@@ -39,6 +41,57 @@ import threading
 - 平衡性能、持久性和存儲成本
 """
 
+app = Flask(__name__)
+app.secret_key = 'your_secret_key'  # 用於加密 session
+
+# 登入路由，處理 GET 與 POST 請求
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        # 從表單取得使用者輸入的電子郵件與密碼
+        email = request.form.get('email')
+        password = request.form.get('password')
+        
+        # 呼叫 auth.py 中的 login_user 進行驗證
+        success, result = login_user(email, password)
+        if success:
+            flash("登入成功！")
+            return redirect(url_for('index'))
+        else:
+            flash(result)
+            return render_template('login.html', error=result)
+    # GET 請求，直接顯示登入頁面
+    return render_template('login.html')
+
+# 註冊路由，處理 GET 與 POST 請求
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        # 取得表單資料
+        username = request.form.get('username')
+        email = request.form.get('email')
+        password = request.form.get('password')
+        confirm_password = request.form.get('confirm_password')
+        
+        # 檢查兩次密碼輸入是否一致
+        if password != confirm_password:
+            error_msg = "兩次輸入的密碼不一致"
+            flash(error_msg)
+            return render_template('login.html', error=error_msg)
+        
+        # 呼叫 auth.py 中的 register_user 進行用戶註冊
+        success, result = register_user(username, email, password)
+        if success:
+            flash("註冊成功，請登入")
+            return redirect(url_for('login'))
+        else:
+            flash(result)
+            return render_template('login.html', error=result)
+    # GET 請求，返回註冊頁面
+    return render_template('login.html')
+
+
+
 
 # 導入新的進度追蹤模組
 from utils.progress_tracker import get_status
@@ -54,9 +107,6 @@ system_status = {
     'last_ping': None,
     'error_count': 0
 }
-
-# 初始化 Flask 應用
-app = Flask(__name__)
 app.config.from_object(Config)
 
 # 配置緩存
