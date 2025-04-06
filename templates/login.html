@@ -6,321 +6,9 @@
   <title>Login & Sign up</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="https://fonts.googleapis.com/css?family=Fira+Sans" rel="stylesheet">
-  <!-- 在 head 中添加 Font Awesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+  <!-- 自定義 CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
 
-  <style>
-    /* ========== 全域重置 & 基本設定 ========== */
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    html,
-    body {
-      width: 100%;
-      height: 100%;
-      font-family: "Fira Sans", Helvetica, Arial, sans-serif;
-      background-color: #E1E8EE;
-    }
-
-    /* ========== 外層容器：置中 & 固定最大寬度 ========== */
-    .outer-container {
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
-    }
-
-    .inner-wrapper {
-      display: flex;
-      max-width: 900px;
-      width: 100%;
-      background-color: #fff;
-      border-radius: 10px;
-      overflow: hidden;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-    }
-
-    /* ========== 左側：深色背景 (放登入/註冊表單) ========== */
-    .left-panel {
-      flex: 1 1 50%;
-      background-color: #222;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 40px 20px;
-    }
-
-    /* ========== 右側：使用 anime.js 動畫背景 ========== */
-    .right-panel {
-      flex: 1 1 50%;
-      position: relative;
-      background-color: #1E1E2F;
-      overflow: hidden;
-      height: 100%;
-      min-height: 500px;
-      /* 確保右側面板有足夠高度 */
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    /* 新增的 SVG 動畫容器 */
-    #animated-bg {
-      width: 100%;
-      height: 100%;
-      max-width: 800px;
-      max-height: 800px;
-    }
-
-    /* ========== 表單容器 ========== */
-    .form-structor {
-      width: 100%;
-      max-width: 350px;
-      color: #fff;
-    }
-
-    /* ========== 登入 / 註冊 區塊 ========== */
-    .login,
-    .signup {
-      background-color: #222;
-      border-radius: 15px;
-      padding: 20px;
-      margin-bottom: 20px;
-      transition: all 0.4s ease;
-    }
-
-    /* 預設顯示登入、隱藏註冊 */
-    .login {
-      opacity: 1;
-      height: auto;
-      pointer-events: auto;
-    }
-
-    .signup {
-      opacity: 0;
-      height: 0;
-      overflow: hidden;
-      pointer-events: none;
-      position: absolute;
-      /* 防止空間佔用 */
-    }
-
-    /* ========== 標題 ========== */
-    .form-title {
-      font-size: 1.6em;
-      text-align: center;
-      margin-bottom: 15px;
-      cursor: pointer;
-    }
-
-    .form-title span {
-      font-size: 0.6em;
-      opacity: 0.8;
-      margin-right: 5px;
-    }
-
-    /* ========== 表單本體 ========== */
-    .form-holder {
-      background-color: #fff;
-      border-radius: 8px;
-      padding: 10px;
-      margin-top: 10px;
-    }
-
-    .input {
-      display: block;
-      width: 100%;
-      margin-bottom: 10px;
-      padding: 10px;
-      border: none;
-      border-bottom: 1px solid #ddd;
-      font-size: 14px;
-      outline: none;
-    }
-
-    /* ========== 按鈕 ========== */
-    .submit-btn {
-      display: block;
-      width: 100%;
-      margin-top: 10px;
-      padding: 12px;
-      font-size: 14px;
-      font-weight: bold;
-      text-align: center;
-      color: #fff;
-      background-color: rgba(0, 0, 0, 0.5);
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-    }
-
-    .submit-btn:hover {
-      background-color: rgba(0, 0, 0, 0.8);
-    }
-
-    /* 文字連結提示區 */
-    .toggle-text {
-      text-align: center;
-      margin-top: 10px;
-      font-size: 0.9em;
-    }
-
-    .toggle-text a {
-      color: #4AE0D5;
-      text-decoration: none;
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    /* ========== 顯示 Flash Message ========== */
-    .flash-message {
-      text-align: center;
-      margin-bottom: 10px;
-      color: #ffdddd;
-      background-color: #b22222;
-      padding: 8px;
-      border-radius: 4px;
-      font-size: 0.9em;
-    }
-
-    /* ========== RWD：小螢幕上下排 ========== */
-    @media (max-width: 768px) {
-      .inner-wrapper {
-        flex-direction: column;
-        border-radius: 0;
-      }
-
-      .left-panel,
-      .right-panel {
-        width: 100%;
-        flex: none;
-      }
-
-      .right-panel {
-        min-height: 300px;
-      }
-
-      /* 小螢幕上的註冊區塊 */
-      .signup {
-        position: static;
-      }
-    }
-
-    /* 提示訊息樣式 */
-    .popup {
-      display: none;
-      padding: 10px;
-      border-radius: 4px;
-      text-align: center;
-      margin: 10px 0;
-      font-size: 1.1em;
-      opacity: 0;
-      transform: translateY(-10px);
-      animation-fill-mode: forwards;
-    }
-
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(-10px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    @keyframes fadeOut {
-      from {
-        opacity: 1;
-        transform: translateY(0);
-      }
-
-      to {
-        opacity: 0;
-        transform: translateY(-10px);
-      }
-    }
-
-    /* 分隔線樣式 */
-    .divider {
-      display: flex;
-      align-items: center;
-      text-align: center;
-      margin: 15px 0;
-    }
-
-    .divider::before,
-    .divider::after {
-      content: '';
-      flex: 1;
-      border-bottom: 1px solid #444;
-    }
-
-    .divider span {
-      padding: 0 10px;
-      color: #fff;
-      font-size: 12px;
-    }
-
-    /* 社交登入按鈕樣式 */
-    .social-login {
-      margin: 15px 0;
-    }
-
-    .btn {
-      display: block;
-      width: 100%;
-      padding: 12px;
-      border-radius: 8px;
-      text-align: center;
-      text-decoration: none;
-      transition: background-color 0.3s;
-      font-size: 14px;
-      font-weight: 500;
-      position: relative;
-    }
-
-    .btn-social {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .btn-google {
-      background-color: #fff;
-      color: #444;
-      border: 1px solid #ddd;
-    }
-
-    .btn-google:hover {
-      background-color: #f5f5f5;
-    }
-
-    .social-icon {
-      width: 18px;
-      height: 18px;
-      margin-right: 10px;
-    }
-
-    /* 註冊提示樣式 */
-    .signup-prompt {
-      margin-top: 15px;
-      text-align: center;
-      font-size: 0.9em;
-    }
-
-    .signup-prompt a {
-      color: #4AE0D5;
-      text-decoration: none;
-    }
-  </style>
 </head>
 
 <body>
@@ -330,6 +18,9 @@
       <div class="left-panel">
         <div class="form-structor">
           <!-- 登入區塊 -->
+          <div class="system-name">
+            <span>TWSE 公司月營收查詢系統</span>
+          </div>
           <div class="login" id="login-section">
             <h2 class="form-title" id="login">Log in</h2>
             <form id="login-form" method="post" action="{{ url_for('login') }}">
@@ -341,8 +32,8 @@
               </div>
               <button type="submit" class="submit-btn">Log in</button>
             </form>
-
             <!-- Google 登入按鈕 -->
+            <!-- 正確的分隔線實現 -->
             <div class="divider">
               <span>OR</span>
             </div>
@@ -355,14 +46,11 @@
                 <span>Continue with Google</span>
               </a>
             </div>
-
-            <!-- 註冊提示 -->
             <p class="toggle-text">
-              Don't have an account?
+              Don’t have an account?
               <a href="#" id="toSignUp">Sign up</a>
             </p>
           </div>
-
           <!-- 註冊區塊 -->
           <div class="signup" id="signup-section">
             <h2 class="form-title" id="signup">Sign up</h2>
@@ -373,10 +61,13 @@
                 <input type="text" class="input" name="username" placeholder="Name" required />
                 <input type="email" class="input" name="email" placeholder="Email" required />
                 <input type="password" class="input" name="password" placeholder="Password" required />
+
+
                 <input type="password" class="input" name="confirm_password" placeholder="Confirm Password" required />
               </div>
               <button type="submit" class="submit-btn">Sign up</button>
             </form>
+
             <p class="toggle-text">
               Already have an account?
               <a href="#" id="toLogIn">Log in</a>
@@ -384,18 +75,85 @@
           </div>
         </div>
       </div>
-
       <!-- 右側：動畫背景 -->
       <div class="right-panel">
         <svg id="animated-bg" viewBox="0 0 800 800" preserveAspectRatio="xMidYMid slice">
-          <path id="line1" d="M0,400 C200,300 600,500 800,400" stroke="#4AE0D5" stroke-width="3" fill="none" />
-          <path id="line2" d="M0,500 C200,400 600,600 800,500" stroke="#3498db" stroke-width="3" fill="none" />
-          <path id="line3" d="M0,600 C200,500 600,700 800,600" stroke="#e74c3c" stroke-width="3" fill="none" />
+          <!-- 背景 -->
+          <rect width="800" height="800" fill="#1E1E2F" />
+
+          <!-- 主要數據網格 -->
+          <g id="grid">
+            <!-- 水平線 -->
+            <line x1="100" y1="200" x2="700" y2="200" stroke="#2a2a45" stroke-width="1" />
+            <line x1="100" y1="300" x2="700" y2="300" stroke="#2a2a45" stroke-width="1" />
+            <line x1="100" y1="400" x2="700" y2="400" stroke="#2a2a45" stroke-width="1" />
+            <line x1="100" y1="500" x2="700" y2="500" stroke="#2a2a45" stroke-width="1" />
+            <line x1="100" y1="600" x2="700" y2="600" stroke="#2a2a45" stroke-width="1" />
+
+            <!-- 垂直線 -->
+            <line x1="100" y1="200" x2="100" y2="600" stroke="#2a2a45" stroke-width="1" />
+            <line x1="200" y1="200" x2="200" y2="600" stroke="#2a2a45" stroke-width="1" />
+            <line x1="300" y1="200" x2="300" y2="600" stroke="#2a2a45" stroke-width="1" />
+            <line x1="400" y1="200" x2="400" y2="600" stroke="#2a2a45" stroke-width="1" />
+            <line x1="500" y1="200" x2="500" y2="600" stroke="#2a2a45" stroke-width="1" />
+            <line x1="600" y1="200" x2="600" y2="600" stroke="#2a2a45" stroke-width="1" />
+            <line x1="700" y1="200" x2="700" y2="600" stroke="#2a2a45" stroke-width="1" />
+          </g>
+
+          <!-- 數據線 1: 主要月營收趨勢 -->
+          <path id="data-line1" d="M100,400 L200,380 L300,350 L400,320 L500,340 L600,310 L700,280" stroke="#4AE0D5"
+            stroke-width="2.5" fill="none" stroke-linecap="round" />
+
+          <!-- 數據線 2: 次要趨勢比較 -->
+          <path id="data-line2" d="M100,450 L200,440 L300,460 L400,430 L500,450 L600,420 L700,440" stroke="#3498db"
+            stroke-width="2" fill="none" opacity="0.8" stroke-linecap="round" />
+
+          <!-- 數據點 -->
+          <g id="data-points-1">
+            <circle cx="100" cy="400" r="4" fill="#4AE0D5" />
+            <circle cx="200" cy="380" r="4" fill="#4AE0D5" />
+            <circle cx="300" cy="350" r="4" fill="#4AE0D5" />
+            <circle cx="400" cy="320" r="4" fill="#4AE0D5" />
+            <circle cx="500" cy="340" r="4" fill="#4AE0D5" />
+            <circle cx="600" cy="310" r="4" fill="#4AE0D5" />
+            <circle cx="700" cy="280" r="4" fill="#4AE0D5" />
+          </g>
+
+          <g id="data-points-2">
+            <circle cx="100" cy="450" r="3.5" fill="#3498db" />
+            <circle cx="200" cy="440" r="3.5" fill="#3498db" />
+            <circle cx="300" cy="460" r="3.5" fill="#3498db" />
+            <circle cx="400" cy="430" r="3.5" fill="#3498db" />
+            <circle cx="500" cy="450" r="3.5" fill="#3498db" />
+            <circle cx="600" cy="420" r="3.5" fill="#3498db" />
+            <circle cx="700" cy="440" r="3.5" fill="#3498db" />
+          </g>
+
+          <!-- 突出顯示區域 -->
+          <path id="highlight-area" d="M400,320 L500,340 L600,310 L700,280 L700,600 L400,600 Z" fill="#4AE0D5"
+            opacity="0.05" />
+
+          <!-- 動態掃描線 -->
+          <line id="scan-line" x1="100" y1="200" x2="100" y2="600" stroke="#4AE0D5" stroke-width="1.5" opacity="0.7" />
+
+          <!-- 浮動數據標籤 -->
+          <g id="data-labels">
+            <circle cx="400" cy="320" r="8" fill="#1E1E2F" stroke="#4AE0D5" stroke-width="1.5" />
+            <circle cx="600" cy="310" r="8" fill="#1E1E2F" stroke="#4AE0D5" stroke-width="1.5" />
+          </g>
+
+          <!-- 裝飾性元素: 抽象數據視覺化 -->
+          <g id="decorative-elements">
+            <path
+              d="M750,150 C760,160 760,180 750,190 C740,200 720,200 710,190 C700,180 700,160 710,150 C720,140 740,140 750,150"
+              stroke="#4AE0D5" stroke-width="1.5" fill="none" />
+            <path d="M50,650 C60,660 60,680 50,690 C40,700 20,700 10,690 C0,680 0,660 10,650 C20,640 40,640 50,650"
+              stroke="#3498db" stroke-width="1.5" fill="none" />
+          </g>
         </svg>
       </div>
     </div>
   </div>
-
   <!-- 引入 anime.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
   <script>
@@ -488,37 +246,94 @@
     toSignUp.addEventListener('click', (e) => {
       e.preventDefault();
       loginSection.style.opacity = '0';
-      loginSection.style.height = '0';
       loginSection.style.pointerEvents = 'none';
+      loginSection.style.zIndex = '1';
+
       signupSection.style.opacity = '1';
-      signupSection.style.height = 'auto';
       signupSection.style.pointerEvents = 'auto';
+      signupSection.style.zIndex = '2';
     });
 
     toLogIn.addEventListener('click', (e) => {
       e.preventDefault();
       signupSection.style.opacity = '0';
-      signupSection.style.height = '0';
       signupSection.style.pointerEvents = 'none';
+      signupSection.style.zIndex = '1';
+
       loginSection.style.opacity = '1';
-      loginSection.style.height = 'auto';
       loginSection.style.pointerEvents = 'auto';
+      loginSection.style.zIndex = '2';
     });
 
-    // 確保動畫在頁面加載後立即執行
+    // Anime.js 動畫設定
     document.addEventListener('DOMContentLoaded', function () {
-      // Anime.js 動畫設定
-      const paths = ['#line1', '#line2', '#line3'];
-      paths.forEach((selector, index) => {
-        anime({
-          targets: selector,
-          strokeDashoffset: [anime.setDashoffset, 0],
-          easing: 'easeInOutSine',
-          duration: 3000 + index * 500,
-          delay: 500,
-          direction: 'alternate',
-          loop: true
-        });
+      // 數據線條動畫
+      anime({
+        targets: ['#data-line1', '#data-line2'],
+        strokeDashoffset: [anime.setDashoffset, 0],
+        easing: 'easeInOutSine',
+        duration: 3000,
+        delay: function (el, i) { return i * 250 },
+        opacity: {
+          value: [0, 1],
+          easing: 'linear',
+          duration: 2000
+        }
+      });
+
+      // 數據點出現動畫
+      anime({
+        targets: ['#data-points-1 circle', '#data-points-2 circle'],
+        scale: [0, 1],
+        opacity: [0, 1],
+        easing: 'easeOutElastic(1, .5)',
+        duration: 2000,
+        delay: anime.stagger(100, { start: 2500 })
+      });
+
+      // 掃描線動畫
+      anime({
+        targets: '#scan-line',
+        translateX: [0, 600],
+        easing: 'linear',
+        duration: 8000,
+        loop: true,
+        opacity: {
+          value: [0.7, 0.2, 0.7],
+          duration: 8000,
+          easing: 'linear'
+        }
+      });
+
+      // 突出顯示區域動畫
+      anime({
+        targets: '#highlight-area',
+        opacity: [0, 0.05, 0.1, 0.05],
+        easing: 'easeInOutQuad',
+        duration: 4000,
+        loop: true
+      });
+
+      // 數據標籤脈動
+      anime({
+        targets: '#data-labels circle',
+        scale: [1, 1.2, 1],
+        opacity: [0.7, 1, 0.7],
+        easing: 'easeInOutQuad',
+        duration: 3000,
+        loop: true,
+        delay: anime.stagger(1500)
+      });
+
+      // 裝飾元素旋轉
+      anime({
+        targets: '#decorative-elements path',
+        rotate: '1turn',
+        duration: 15000,
+        loop: true,
+        easing: 'linear',
+        transformOrigin: 'center center',
+        delay: anime.stagger(2000)
       });
     });
   </script>

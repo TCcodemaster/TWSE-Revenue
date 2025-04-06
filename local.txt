@@ -1,1 +1,1 @@
-LOCAL_DEV_VOLUMES=./data LOCAL_DEV_VOLUMES_CACHE=./cache docker-compose up
+$env:LOCAL_DEV_VOLUMES="./data"; $env:LOCAL_DEV_VOLUMES_CACHE="./cache"; docker-compose up
