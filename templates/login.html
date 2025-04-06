@@ -6,6 +6,9 @@
   <title>Login & Sign up</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link href="https://fonts.googleapis.com/css?family=Fira+Sans" rel="stylesheet">
+  <!-- 在 head 中添加 Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+
   <style>
     /* ========== 全域重置 & 基本設定 ========== */
     * {
@@ -57,16 +60,20 @@
       position: relative;
       background-color: #1E1E2F;
       overflow: hidden;
+      height: 100%;
+      min-height: 500px;
+      /* 確保右側面板有足夠高度 */
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
     /* 新增的 SVG 動畫容器 */
     #animated-bg {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 90%;
-      height: auto;
+      width: 100%;
+      height: 100%;
+      max-width: 800px;
+      max-height: 800px;
     }
 
     /* ========== 表單容器 ========== */
@@ -98,6 +105,8 @@
       height: 0;
       overflow: hidden;
       pointer-events: none;
+      position: absolute;
+      /* 防止空間佔用 */
     }
 
     /* ========== 標題 ========== */
@@ -190,7 +199,15 @@
       .right-panel {
         width: 100%;
         flex: none;
+      }
+
+      .right-panel {
         min-height: 300px;
+      }
+
+      /* 小螢幕上的註冊區塊 */
+      .signup {
+        position: static;
       }
     }
 
@@ -230,6 +247,79 @@
         transform: translateY(-10px);
       }
     }
+
+    /* 分隔線樣式 */
+    .divider {
+      display: flex;
+      align-items: center;
+      text-align: center;
+      margin: 15px 0;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: '';
+      flex: 1;
+      border-bottom: 1px solid #444;
+    }
+
+    .divider span {
+      padding: 0 10px;
+      color: #fff;
+      font-size: 12px;
+    }
+
+    /* 社交登入按鈕樣式 */
+    .social-login {
+      margin: 15px 0;
+    }
+
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      border-radius: 8px;
+      text-align: center;
+      text-decoration: none;
+      transition: background-color 0.3s;
+      font-size: 14px;
+      font-weight: 500;
+      position: relative;
+    }
+
+    .btn-social {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-google {
+      background-color: #fff;
+      color: #444;
+      border: 1px solid #ddd;
+    }
+
+    .btn-google:hover {
+      background-color: #f5f5f5;
+    }
+
+    .social-icon {
+      width: 18px;
+      height: 18px;
+      margin-right: 10px;
+    }
+
+    /* 註冊提示樣式 */
+    .signup-prompt {
+      margin-top: 15px;
+      text-align: center;
+      font-size: 0.9em;
+    }
+
+    .signup-prompt a {
+      color: #4AE0D5;
+      text-decoration: none;
+    }
   </style>
 </head>
 
@@ -251,11 +341,28 @@
               </div>
               <button type="submit" class="submit-btn">Log in</button>
             </form>
+
+            <!-- Google 登入按鈕 -->
+            <div class="divider">
+              <span>OR</span>
+            </div>
+
+            <div class="social-login">
+              <a href="{{ url_for('google.login') }}" class="btn btn-social btn-google">
+
+                <img src="https://developers.google.com/identity/images/g-logo.png" alt="Google" class="social-icon"
+                  width="18" height="18">
+                <span>Continue with Google</span>
+              </a>
+            </div>
+
+            <!-- 註冊提示 -->
             <p class="toggle-text">
-              Don’t have an account?
+              Don't have an account?
               <a href="#" id="toSignUp">Sign up</a>
             </p>
           </div>
+
           <!-- 註冊區塊 -->
           <div class="signup" id="signup-section">
             <h2 class="form-title" id="signup">Sign up</h2>
@@ -277,6 +384,7 @@
           </div>
         </div>
       </div>
+
       <!-- 右側：動畫背景 -->
       <div class="right-panel">
         <svg id="animated-bg" viewBox="0 0 800 800" preserveAspectRatio="xMidYMid slice">
@@ -287,6 +395,7 @@
       </div>
     </div>
   </div>
+
   <!-- 引入 anime.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
   <script>
@@ -396,17 +505,20 @@
       loginSection.style.pointerEvents = 'auto';
     });
 
-    // Anime.js 動畫設定
-    const paths = ['#line1', '#line2', '#line3'];
-    paths.forEach((selector, index) => {
-      anime({
-        targets: selector,
-        strokeDashoffset: [anime.setDashoffset, 0],
-        easing: 'easeInOutSine',
-        duration: 3000 + index * 500,
-        delay: 500,
-        direction: 'alternate',
-        loop: true
+    // 確保動畫在頁面加載後立即執行
+    document.addEventListener('DOMContentLoaded', function () {
+      // Anime.js 動畫設定
+      const paths = ['#line1', '#line2', '#line3'];
+      paths.forEach((selector, index) => {
+        anime({
+          targets: selector,
+          strokeDashoffset: [anime.setDashoffset, 0],
+          easing: 'easeInOutSine',
+          duration: 3000 + index * 500,
+          delay: 500,
+          direction: 'alternate',
+          loop: true
+        });
       });
     });
   </script>

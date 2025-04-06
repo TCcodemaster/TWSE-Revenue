@@ -1,77 +1,100 @@
-from flask import Flask, render_template, request, jsonify, redirect, url_for
-from config import Config
-from utils.scraper import get_company_data,get_status
-from utils.data_processor import parse_range, prepare_chart_data, prepare_yearly_comparison_data
-from utils.database import Database
 import os
 import logging
 import datetime
 import time
-from flask_caching import Cache
 import traceback
 import threading
-from flask import Flask, render_template, request, redirect, url_for, flash, session
+
+from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
+from flask_caching import Cache, logger
+from config import Config
+from utils.scraper import get_company_data, get_status
+from utils.data_processor import parse_range, prepare_chart_data, prepare_yearly_comparison_data
+from utils.database import Database
 from utils.auth import login_user, register_user
-# 登入路由，處理 GET 與 POST 請求
-from flask import jsonify, request
 
-"""
-多層緩存策略（Multi-Tier Caching Strategy）
+# 引入 Flask-Dance Google OAuth 模組
+from flask_dance.contrib.google import make_google_blueprint, google
 
-緩存層級與特性：
-
-1. 記憶體緩存 (In-Memory Cache)
-    - 位置：Flask-Caching (app.py)
-    - 存取速度：最快（毫秒級）
-    - 生命週期：應用運行期間
-    - 適用場景：頻繁、短期數據查詢
-    - 實現方法：cache.set() / cache.get()
-
-2. 數據庫緩存 (Database Cache)
-    - 位置：utils/database.py
-    - 存取速度：相對較慢
-    - 生命週期：永久保存
-    - 適用場景：長期數據存儲
-    - 實現方法：SQLite持久化
-
-檢索優先順序：
-記憶體緩存 →  數據庫緩存
-
-設計目的：
-- 提供多層次、靈活的數據緩存機制
-- 平衡性能、持久性和存儲成本
-"""
-
+# 建立 Flask 應用，並從 Config 載入設定（config.py 中已使用 dotenv 載入環境變數）
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'  # 用於加密 session
+app.config.from_object(Config)
+app.secret_key = app.config['SECRET_KEY']  # SECRET_KEY 用於 session 加密
 
+# 配置記憶體快取
+cache_config = {
+    "DEBUG": True,
+    "CACHE_TYPE": "SimpleCache",
+    "CACHE_DEFAULT_TIMEOUT": 3600  # 一小時快取時間
+}
+app.config.from_mapping(cache_config)
+cache = Cache(app)
 
+# 建立 Google OAuth Blueprint
+# 注意：此處使用 .env 中的 GOOGLE_CLIENT_ID 與 GOOGLE_CLIENT_SECRET
+google_bp = make_google_blueprint(
+    client_id=os.environ.get("GOOGLE_CLIENT_ID"),
+    client_secret=os.environ.get("GOOGLE_CLIENT_SECRET"),
+    scope=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
+    # 設定的 redirect_url 必須與 Google Cloud Console 中已授權的重導向 URI 完全一致，
+    # 例如：http://localhost:5000/google_login_callback
+    redirect_url="/google_login_callback"
+)
+# 註冊 Blueprint，預設授權路徑會變成 /login/google/authorized
+app.register_blueprint(google_bp, url_prefix="/login")
 
+# 初始化資料庫：如果環境變數中有 DATABASE_DIR 則使用之，否則預設於應用內的 data 資料夾
+db_base_path = os.environ.get('DATABASE_DIR', os.path.join(app.root_path, 'data'))
+os.makedirs(db_base_path, exist_ok=True)
+db_path = os.path.join(db_base_path, 'data.db')
+db = Database(db_path)
+
+# 系統狀態與初始化資訊
+system_status = {
+    'startup_time': None,
+    'is_initializing': True,
+    'startup_count': 0,
+    'last_ping': None,
+    'error_count': 0
+}
+
+def initialize_system():
+    """執行系統初始化流程"""
+    system_status['startup_time'] = datetime.datetime.now()
+    system_status['is_initializing'] = True
+    system_status['startup_count'] += 1
+    logging.info("系統啟動中...")
+    time.sleep(0.5)  # 模擬連接資料庫
+    logging.info("資料庫連接成功")
+    time.sleep(0.5)  # 模擬載入配置
+    logging.info("應用程式配置載入完成")
+    time.sleep(0.5)  # 模擬檢查快取
+    logging.info("資料快取檢查完成")
+    system_status['is_initializing'] = False
+    logging.info(f"系統啟動完成，這是第 {system_status['startup_count']} 次啟動")
+    return True
+
+# 傳統帳號密碼登入路由
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
-        
         success, result = login_user(username, password)
         if success:
-            message = "登入成功！"
-            flash(message, 'success')
-            # 如果是 AJAX 請求（或 accept JSON 較高），返回 JSON
+            flash("登入成功！", 'success')
+            # AJAX 或傳統提交分支
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or \
                request.accept_mimetypes['application/json'] >= request.accept_mimetypes['text/html']:
-                return jsonify(success=True, message=message, url=url_for('index'))
-            # 傳統提交則直接跳轉
+                return jsonify(success=True, message="登入成功", url=url_for('index'))
             return redirect(url_for('index'))
         else:
-            message = result
-            flash(message, 'error')
+            flash(result, 'error')
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or \
                request.accept_mimetypes['application/json'] >= request.accept_mimetypes['text/html']:
-                return jsonify(success=False, message=message)
-            return render_template('login.html', error=message)
+                return jsonify(success=False, message=result)
+            return render_template('login.html', error=result)
     return render_template('login.html')
-
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -80,127 +103,73 @@ def register():
         email = request.form.get('email')
         password = request.form.get('password')
         confirm_password = request.form.get('confirm_password')
-        
         if password != confirm_password:
-            error_msg = "兩次輸入的密碼不一致"
-            flash(error_msg, 'error')
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or \
-               request.accept_mimetypes['application/json'] >= request.accept_mimetypes['text/html']:
-                return jsonify(success=False, message=error_msg)
-            return render_template('login.html', error=error_msg)
-        
+            flash("兩次輸入的密碼不一致", "error")
+            return render_template('login.html', error="兩次輸入的密碼不一致")
         success, result = register_user(username, email, password)
         if success:
-            message = "註冊成功，請登入"
-            flash(message, 'success')
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or \
-               request.accept_mimetypes['application/json'] >= request.accept_mimetypes['text/html']:
-                return jsonify(success=True, message=message, url=url_for('login'))
+            flash("註冊成功，請登入", "success")
             return redirect(url_for('login'))
         else:
-            message = result
-            flash(message, 'error')
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or \
-               request.accept_mimetypes['application/json'] >= request.accept_mimetypes['text/html']:
-                return jsonify(success=False, message=message)
-            return render_template('login.html', error=message)
+            flash(result, "error")
+            return render_template('login.html', error=result)
     return render_template('login.html')
 
+# Google OAuth 回呼路由
+@app.route('/google_login_callback')
+def google_login_callback():
+    # 若尚未授權，轉到 Google 登入流程
+    if not google.authorized:
+        return redirect(url_for("google.login"))
+    # 從 Google 取得使用者資訊
+    resp = google.get("/oauth2/v1/userinfo")
+    if not resp.ok:
+        flash("無法從 Google 取得使用者資訊，請稍後再試。", "error")
+        return redirect(url_for("login"))
+    info = resp.json()
+    google_id = info.get("id")
+    email = info.get("email")
+    username = info.get("name") or email.split("@")[0]
+    # 根據 google_id 或 email 檢查資料庫是否已有此用戶
+    user_obj = db.get_user_by_google_id(google_id)
+    if not user_obj:
+        user_obj = db.get_user_by_email(email)
+    if not user_obj:
+        # 自動註冊：Google OAuth 用戶不需提供本地密碼
+        success, user_id_or_msg = db.create_user(
+            username=username,
+            email=email,
+            password_hash=None,
+            google_id=google_id
+        )
+        if not success:
+            flash(f"自動註冊失敗: {user_id_or_msg}", "error")
+            return redirect(url_for("login"))
+        user_obj = db.get_user_by_id(user_id_or_msg)
+    # 寫入 session，完成登入
+    session['user_id'] = user_obj['id']
+    session['username'] = user_obj['username']
+    flash("使用 Google 登入成功", "success")
+    return redirect(url_for("index"))
 
-
-
-# 導入新的進度追蹤模組
-from utils.progress_tracker import get_status
-# 配置日誌
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# 系統狀態追踪
-system_status = {
-    'startup_time': None,
-    'is_initializing': True,
-    'startup_count': 0,
-    'last_ping': None,
-    'error_count': 0
-}
-app.config.from_object(Config)
-
-# 配置緩存
-cache_config = {
-    "DEBUG": True,
-    "CACHE_TYPE": "SimpleCache",  # 簡單記憶體緩存
-    "CACHE_DEFAULT_TIMEOUT": 3600  # 提高預設緩存時間至1小時
-}
-app.config.from_mapping(cache_config)
-cache = Cache(app)
-
-# TODO Render 部署時，每次啟動都是新的容器，如果沒有設置持久化磁碟 (Persistent Disk)，data.db 會在重啟後消失。
-# TODO Render 的文件系統是唯讀的 (Read-Only)，除非手動設置掛載目錄。
-
-# 確保 `data` 資料夾存在
-# 從環境變數讀取數據庫位置，提供合理預設值
-db_base_path = os.environ.get('DATABASE_DIR', os.path.join(app.root_path, 'data'))
-os.makedirs(db_base_path, exist_ok=True)
-
-db_path = os.path.join(db_base_path, 'data.db')
-db = Database(db_path)
-# 啟動系統
-def initialize_system():
-    """執行系統初始化流程"""
-    system_status['startup_time'] = datetime.datetime.now()
-    system_status['is_initializing'] = True
-    system_status['startup_count'] += 1
-    
-    logger.info("系統啟動中...")
-    
-    # 模擬初始化流程，可以在這裡添加實際的初始化邏輯
-    time.sleep(0.5)  # 連接資料庫
-    logger.info("資料庫連接成功")
-    
-    time.sleep(0.5)  # 載入配置
-    logger.info("應用程式配置載入完成")
-    
-    time.sleep(0.5)  # 檢查快取
-    logger.info("資料快取檢查完成")
-    
-    # 初始化完成
-    system_status['is_initializing'] = False
-    logger.info(f"系統啟動完成，這是第 {system_status['startup_count']} 次啟動")
-    
-    return True
-
-# 啟動頁面路由
-@app.route('/startup')
-def startup():
-    """系統啟動頁面"""
-    # 如果系統已經初始化完成，直接跳轉到首頁
-    if system_status['startup_time'] is not None and not system_status['is_initializing']:
-        return redirect(url_for('index'))
-    
-    # 否則顯示啟動頁面
-    return render_template('startup.html')
-
-# 首頁路由
 # 首頁路由
 @app.route('/')
 def index():
-    # 如果系統尚未初始化，跳轉到啟動頁面
     if system_status['startup_time'] is None:
-        # 啟動初始化流程
         initialize_system()
         return redirect(url_for('startup'))
-    
-    # 如果系統正在初始化中，也跳轉到啟動頁面
     if system_status['is_initializing']:
         return redirect(url_for('startup'))
-    
-    # 檢查用戶是否已登入
     if 'user_id' not in session:
         return redirect(url_for('login'))
-    
-    # 系統已經初始化完成，從數據庫讀取當前登入用戶的查詢歷史
+    # 取得該用戶的查詢歷史（假設 db.get_query_history 依據 user_id 返回資料）
     query_history = db.get_query_history(user_id=session.get('user_id'))
     return render_template('index.html', query_history=query_history)
+@app.route('/startup')
+def startup():
+    if system_status['startup_time'] is not None and not system_status['is_initializing']:
+        return redirect(url_for('index'))
+    return render_template('startup.html')
 # 保活 API 端點
 @app.route('/api/keep-alive', methods=['GET'])
 def keep_alive():

@@ -15,7 +15,8 @@ services:
     # volumes:
     #   - db_data:/app/data # ✅ Render 將 Persistent Disk 掛載在 /app/data
     #   - cache_data:/app/cache # ✅ 如果也要快取快照儲存，可加上這一個（可選）
-
+    env_file:
+      - .env
     environment:
       - FLASK_ENV=production
       - WORKERS=2
@@ -23,7 +24,7 @@ services:
       - MAX_REQUESTS=1000
       - MAX_REQUESTS_JITTER=50
       - DATABASE_DIR=/app/data
-
+      - OAUTHLIB_INSECURE_TRANSPORT=1
     restart: always
 
     healthcheck:
