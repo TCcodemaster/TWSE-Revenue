@@ -32,13 +32,11 @@ cache = Cache(app)
 
 # 建立 Google OAuth Blueprint
 # 注意：此處使用 .env 中的 GOOGLE_CLIENT_ID 與 GOOGLE_CLIENT_SECRET
+# 移除 redirect_url 參數，讓 Flask-Dance 使用預設的 /login/google/authorized
 google_bp = make_google_blueprint(
     client_id=os.environ.get("GOOGLE_CLIENT_ID"),
     client_secret=os.environ.get("GOOGLE_CLIENT_SECRET"),
-    scope=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"],
-    # 設定的 redirect_url 必須與 Google Cloud Console 中已授權的重導向 URI 完全一致，
-    # 例如：http://localhost:5000/google_login_callback
-    redirect_url="/google_login_callback"
+    scope=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"]
 )
 # 註冊 Blueprint，預設授權路徑會變成 /login/google/authorized
 app.register_blueprint(google_bp, url_prefix="/login")
@@ -116,7 +114,7 @@ def register():
     return render_template('login.html')
 
 # Google OAuth 回呼路由
-@app.route('/google_login_callback')
+@app.route("/login/google/authorized")
 def google_login_callback():
     # 若尚未授權，轉到 Google 登入流程
     if not google.authorized:
