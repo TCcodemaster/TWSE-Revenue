@@ -1,0 +1,1 @@
+LOCAL_DEV_VOLUMES=./data LOCAL_DEV_VOLUMES_CACHE=./cache docker-compose up
