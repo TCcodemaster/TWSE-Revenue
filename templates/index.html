@@ -73,7 +73,7 @@
         <div class="card-footer bg-light">
           <div class="row">
             <div class="col-md-6">
-              <h5 class="text-primary fw-bold"><i class="fas fa-history me-2"></i>最近查詢</h5>
+              <h5 class="text-primary fw-bold"><i class="fas fa-history me-2"></i>{{ session.username }} 查詢紀錄</h5>
               <div class="list-group history-list shadow-sm">
                 <!-- 顯示前五個記錄 -->
                 {% for query in query_history[:5] %}
@@ -147,7 +147,7 @@
         <div class="card-header bg-gradient-success text-white py-3">
           <h4 class="mb-0 fw-bold"><i class="fas fa-table me-2"></i>查詢結果</h4>
         </div>
-        <!-- 圖表按鈕區域 - 改進樣式 -->
+        <!-- 圖表按鈕區域 -->
         <div class="px-4 pt-4 pb-2">
           <div class="d-flex flex-wrap gap-2">
             <button type="button" id="revenue-chart-btn" class="btn btn-primary shadow-sm">
@@ -170,7 +170,7 @@
           </div>
           <div class="alert alert-danger error-message shadow-sm" style="display: none;"></div>
 
-          <!-- 資料表格 - 改進樣式 -->
+          <!-- 資料表格 -->
           <div class="table-responsive">
             <table class="table table-striped table-hover" id="results-table">
               <thead class="table-light">
@@ -193,7 +193,7 @@
     </div>
   </div>
 
-  <!-- 年度比較選擇公司對話框 - 改進樣式 -->
+  <!-- 年度比較選擇公司對話框 -->
   <div class="modal fade" id="company-select-modal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content border-0 shadow">

@@ -18,7 +18,7 @@
 }
 /* 自定義邊框顏色 */
 .border-custom-info {
-  border-color: hsl(11deg 100% 62.2% / 45%)!important;
+  border-color: #FF7F50 !important;
 }
 
 .btn-outline-custom-info {
@@ -140,7 +140,7 @@ body {
 /* 為歷史項目添加視覺效果 */
 .history-item {
   transition: all 0.25s ease;
-  border-left: 3px solid transparent;
+  border-left: 3px solid #d8db34; /* 藍色 - 專業、穩重 */
   border-radius: 0;
   position: relative;
 }
@@ -156,8 +156,9 @@ body {
 }
 
 .history-item:hover {
-  background-color: rgba(75, 108, 183, 0.05);
+  background-color: rgba(255, 127, 80, 0.08);
   transform: translateX(2px);
+  box-shadow: 0 2px 4px rgba(255, 127, 80, 0.15);
 }
 
 /* 添加漸變邊框效果 */
@@ -168,7 +169,6 @@ body {
   top: 0;
   bottom: 0;
   width: 3px;
-  background: linear-gradient(to bottom, var(--primary), var(--primary-light));
 }
 
 /* 卡片陰影和圓角 */
