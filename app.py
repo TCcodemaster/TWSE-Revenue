@@ -75,42 +75,145 @@ def initialize_system():
 # 傳統帳號密碼登入路由
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    """
+    處理用戶登入請求。
+    
+    支援兩種提交方式:
+    1. 傳統表單提交: 返回重定向或HTML頁面
+    2. AJAX請求: 返回JSON格式響應
+    
+    Returns:
+        - 成功時: 重定向到首頁(傳統)或返回JSON成功訊息(AJAX)
+        - 失敗時: 返回登入頁面(傳統)或返回JSON錯誤訊息(AJAX)
+    """
     if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
+        # 判斷請求類型以決定如何獲取數據
+        is_ajax_request = (
+            request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+            request.accept_mimetypes.get('application/json', 0) >= 
+            request.accept_mimetypes.get('text/html', 0)
+        )
+        
+        # 調試記錄 - 幫助排查問題
+        app.logger.debug(f"Content-Type: {request.content_type}")
+        app.logger.debug(f"Is AJAX: {is_ajax_request}")
+        
+        # 處理JSON或表單數據
+        if request.is_json:
+            data = request.get_json()
+            username = data.get('username')
+            password = data.get('password')
+        else:
+            username = request.form.get('username')
+            password = request.form.get('password')
+        
+        # 驗證用戶
         success, result = login_user(username, password)
+        
         if success:
             flash("登入成功！", 'success')
-            # AJAX 或傳統提交分支
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or \
-               request.accept_mimetypes['application/json'] >= request.accept_mimetypes['text/html']:
-                return jsonify(success=True, message="登入成功", url=url_for('index'))
+            # 設置用戶session
+            # 假設login_user返回的result中包含user_id和username
+            if isinstance(result, dict):
+                session['user_id'] = result.get('user_id')
+                session['username'] = result.get('username')
+            
+            if is_ajax_request:
+                return jsonify({
+                    'success': True, 
+                    'message': "登入成功", 
+                    'url': url_for('index')
+                })
             return redirect(url_for('index'))
         else:
             flash(result, 'error')
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or \
-               request.accept_mimetypes['application/json'] >= request.accept_mimetypes['text/html']:
-                return jsonify(success=False, message=result)
+            if is_ajax_request:
+                return jsonify({
+                    'success': False, 
+                    'message': result
+                })
             return render_template('login.html', error=result)
+    
+    # GET請求返回登入頁面
     return render_template('login.html')
+
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    """
+    處理用戶註冊請求。
+    
+    支援兩種提交方式:
+    1. 傳統表單提交: 返回重定向或HTML頁面
+    2. AJAX請求: 返回JSON格式響應
+    
+    處理流程:
+    1. 驗證密碼是否匹配
+    2. 調用register_user函數嘗試註冊用戶
+    3. 根據註冊結果返回相應響應
+    
+    Returns:
+        - 成功時: 重定向到登入頁(傳統)或返回JSON成功訊息(AJAX)
+        - 失敗時: 返回註冊頁面(傳統)或返回JSON錯誤訊息(AJAX)
+    """
     if request.method == 'POST':
-        username = request.form.get('username')
-        email = request.form.get('email')
-        password = request.form.get('password')
-        confirm_password = request.form.get('confirm_password')
+        # 判斷請求類型以決定如何獲取數據
+        is_ajax_request = (
+            request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
+            request.accept_mimetypes.get('application/json', 0) >= 
+            request.accept_mimetypes.get('text/html', 0)
+        )
+        
+        # 處理JSON或表單數據
+        if request.is_json:
+            data = request.get_json()
+            username = data.get('username')
+            email = data.get('email')
+            password = data.get('password')
+            confirm_password = data.get('confirm_password')
+        else:
+            username = request.form.get('username')
+            email = request.form.get('email')
+            password = request.form.get('password')
+            confirm_password = request.form.get('confirm_password')
+        
+        # 驗證密碼
         if password != confirm_password:
-            flash("兩次輸入的密碼不一致", "error")
-            return render_template('login.html', error="兩次輸入的密碼不一致")
+            error_msg = "兩次輸入的密碼不一致"
+            flash(error_msg, "error")
+            
+            if is_ajax_request:
+                return jsonify({
+                    'success': False, 
+                    'message': error_msg
+                })
+            return render_template('login.html', error=error_msg)
+        
+        # 註冊用戶
         success, result = register_user(username, email, password)
+        
         if success:
-            flash("註冊成功，請登入", "success")
+            success_msg = "註冊成功，請登入"
+            flash(success_msg, "success")
+            
+            if is_ajax_request:
+                return jsonify({
+                    'success': True, 
+                    'message': success_msg,
+                    'url': url_for('login')
+                })
             return redirect(url_for('login'))
         else:
             flash(result, "error")
+            
+            if is_ajax_request:
+                return jsonify({
+                    'success': False, 
+                    'message': result
+                })
             return render_template('login.html', error=result)
+    
+    # GET請求返回註冊頁面(通常與登入頁面相同)
     return render_template('login.html')
 
 # Google OAuth 回呼路由

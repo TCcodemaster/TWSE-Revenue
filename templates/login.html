@@ -183,12 +183,31 @@
     loginForm.addEventListener('submit', function (event) {
       event.preventDefault();
       const formData = new FormData(loginForm);
+
+      // 添加明確的 AJAX 請求頭
       fetch(loginForm.action, {
         method: 'POST',
         body: formData,
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'  // 明確告知伺服器這是一個 AJAX 請求
+        },
         credentials: 'include'
       })
-        .then(response => response.json())
+        .then(response => {
+          // 檢查響應狀態是否正常
+          if (!response.ok) {
+            throw new Error(`Server responded with status: ${response.status}`);
+          }
+
+          // 檢查內容類型
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            return response.json();
+          } else {
+            console.error('Received non-JSON response:', contentType);
+            throw new Error('Response was not JSON as expected');
+          }
+        })
         .then(data => {
           if (data.success) {
             displayPopup('popup-login', data.message, true);
@@ -204,7 +223,7 @@
         })
         .catch(error => {
           console.error('Error:', error);
-          displayPopup('popup-login', "An error occurred. Please try again later.", false);
+          displayPopup('popup-login', "發生錯誤，請稍後再試", false);
         });
     });
 
@@ -213,12 +232,31 @@
     registerForm.addEventListener('submit', function (event) {
       event.preventDefault();
       const formData = new FormData(registerForm);
+
+      // 添加明確的 AJAX 請求頭
       fetch(registerForm.action, {
         method: 'POST',
         body: formData,
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest'  // 明確告知伺服器這是一個 AJAX 請求
+        },
         credentials: 'include'
       })
-        .then(response => response.json())
+        .then(response => {
+          // 檢查響應狀態是否正常
+          if (!response.ok) {
+            throw new Error(`Server responded with status: ${response.status}`);
+          }
+
+          // 檢查內容類型
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            return response.json();
+          } else {
+            console.error('Received non-JSON response:', contentType);
+            throw new Error('Response was not JSON as expected');
+          }
+        })
         .then(data => {
           if (data.success) {
             displayPopup('popup-register', data.message, true);
@@ -234,7 +272,7 @@
         })
         .catch(error => {
           console.error('Error:', error);
-          displayPopup('popup-register', "An error occurred. Please try again later.", false);
+          displayPopup('popup-register', "發生錯誤，請稍後再試", false);
         });
     });
     // 切換登入與註冊區塊
