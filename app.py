@@ -15,24 +15,14 @@ from utils.auth import login_user, register_user
 
 # 引入 Flask-Dance Google OAuth 模組
 from flask_dance.contrib.google import make_google_blueprint, google
-from werkzeug.middleware.proxy_fix import ProxyFix
-
-
-
 
 # 建立 Flask 應用，並從 Config 載入設定（config.py 中已使用 dotenv 載入環境變數）
 app = Flask(__name__)
 app.config.from_object(Config)
-app.secret_key = app.config['SECRET_KEY']
-app.config.update(
-    SESSION_COOKIE_SECURE=True,
-    SESSION_COOKIE_SAMESITE='Lax',
-)
-# SECRET_KEY 用於 session 加密
-app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+app.secret_key = app.config['SECRET_KEY']  # SECRET_KEY 用於 session 加密
+
 # 配置記憶體快取
 cache_config = {
-    
     "DEBUG": True,
     "CACHE_TYPE": "SimpleCache",
     "CACHE_DEFAULT_TIMEOUT": 3600  # 一小時快取時間
@@ -46,14 +36,8 @@ cache = Cache(app)
 google_bp = make_google_blueprint(
     client_id=os.environ.get("GOOGLE_CLIENT_ID"),
     client_secret=os.environ.get("GOOGLE_CLIENT_SECRET"),
-    scope=[
-        "openid",
-        "https://www.googleapis.com/auth/userinfo.email",
-        "https://www.googleapis.com/auth/userinfo.profile"
-    ],
-    redirect_url="https://twse-revenue.onrender.com/login/google/authorized"
+    scope=["openid", "https://www.googleapis.com/auth/userinfo.email", "https://www.googleapis.com/auth/userinfo.profile"]
 )
-
 # 註冊 Blueprint，預設授權路徑會變成 /login/google/authorized
 app.register_blueprint(google_bp, url_prefix="/login")
 
